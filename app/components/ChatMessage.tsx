@@ -61,7 +61,7 @@ export default function ChatMessage({
                     </span>
                 )}
                 <div
-                    className={`px-4 py-3 rounded-lg ${
+                    className={`px-4 py-2 rounded-lg ${
                         isOwn
                             ? isWhisper
                                 ? 'bg-slate-800 text-slate-200 border border-purple-600 rounded-tr-none'
