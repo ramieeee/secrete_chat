@@ -15,6 +15,7 @@ interface Message {
     user_list?: string[];
     target_nickname?: string;
     image_data?: string;
+    emoji?: string;
 }
 
 interface ChatRoomProps {
@@ -30,6 +31,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const ws_ref = useRef<WebSocket | null>(null);
     const messages_end_ref = useRef<HTMLDivElement>(null);
     const onDisconnect_ref = useRef(onDisconnect);
+    const reconnect_timeout_ref = useRef<NodeJS.Timeout | null>(null);
+    const is_reconnecting_ref = useRef(false);
     
     useEffect(() => {
         onDisconnect_ref.current = onDisconnect;
@@ -48,6 +51,12 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 return;
             }
 
+            if (is_reconnecting_ref.current) {
+                return;
+            }
+
+            is_reconnecting_ref.current = true;
+
             try {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const hostname = window.location.hostname;
@@ -61,6 +70,11 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     if (is_mounted && ws && ws.readyState === WebSocket.OPEN) {
                         setIsConnected(true);
                         setConnectionError(null);
+                        is_reconnecting_ref.current = false;
+                        if (reconnect_timeout_ref.current) {
+                            clearTimeout(reconnect_timeout_ref.current);
+                            reconnect_timeout_ref.current = null;
+                        }
                         ws.send(JSON.stringify({
                             type: 'join',
                             nickname: nickname
@@ -112,7 +126,24 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         if (event.code === 1008) {
                             const reason = event.reason || '입장이 거부되었습니다.';
                             onDisconnect_ref.current(reason);
+                            is_reconnecting_ref.current = false;
                             return;
+                        }
+                        
+                        if (event.code === 1000) {
+                            is_reconnecting_ref.current = false;
+                            return;
+                        }
+                        
+                        if (is_mounted) {
+                            setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
+                            is_reconnecting_ref.current = false;
+                            
+                            reconnect_timeout_ref.current = setTimeout(() => {
+                                if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
+                                    connectWebSocket();
+                                }
+                            }, 5000);
                         }
                     }
                 };
@@ -120,20 +151,43 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 console.error('웹소켓 생성 오류:', error);
                 if (is_mounted) {
                     setIsConnected(false);
+                    setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
+                    is_reconnecting_ref.current = false;
+                    
+                    reconnect_timeout_ref.current = setTimeout(() => {
+                        if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
+                            connectWebSocket();
+                        }
+                    }, 5000);
                 }
             }
         };
 
         connectWebSocket();
 
+        const check_connection_interval = setInterval(() => {
+            if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
+                if (!is_reconnecting_ref.current) {
+                    setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
+                    connectWebSocket();
+                }
+            }
+        }, 5000);
+
         return () => {
             is_mounted = false;
+            if (reconnect_timeout_ref.current) {
+                clearTimeout(reconnect_timeout_ref.current);
+                reconnect_timeout_ref.current = null;
+            }
+            clearInterval(check_connection_interval);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.close(1000, '컴포넌트 언마운트');
             }
             if (ws_ref.current === ws) {
                 ws_ref.current = null;
             }
+            is_reconnecting_ref.current = false;
         };
     }, [nickname]);
 
@@ -145,13 +199,28 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         const last_message = messages[messages.length - 1];
         if (last_message && last_message.type === 'message' && last_message.nickname !== nickname) {
             const original_title = document.title;
-            document.title = 'New message - chat programme';
+            let blink_count = 0;
+            const max_blinks = 10;
             
-            const timeout = setTimeout(() => {
+            const blink_interval = setInterval(() => {
+                if (blink_count >= max_blinks) {
+                    clearInterval(blink_interval);
+                    document.title = original_title;
+                    return;
+                }
+                
+                if (document.hidden) {
+                    document.title = blink_count % 2 === 0 ? '● New message - chat programme' : original_title;
+                } else {
+                    document.title = original_title;
+                }
+                blink_count++;
+            }, 500);
+            
+            return () => {
+                clearInterval(blink_interval);
                 document.title = original_title;
-            }, 3000);
-            
-            return () => clearTimeout(timeout);
+            };
         }
     }, [messages, nickname]);
 
@@ -164,7 +233,12 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 return prev.filter((msg) => {
                     if (msg.type === 'message' || msg.type === 'whisper') {
                         const message_age = now - msg.timestamp;
-                        return message_age < five_minutes;
+                        if (message_age >= five_minutes) {
+                            if (msg.image_data) {
+                                msg.image_data = undefined;
+                            }
+                            return false;
+                        }
                     }
                     return true;
                 });
@@ -176,7 +250,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         return () => clearInterval(interval);
     }, []);
 
-    const handleSendMessage = (message: string, target_nickname?: string, image_data?: string) => {
+    const handleSendMessage = (message: string, target_nickname?: string, image_data?: string, emoji?: string) => {
         if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
             try {
                 if (target_nickname) {
@@ -184,16 +258,18 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         type: 'whisper',
                         message: message,
                         target_nickname: target_nickname,
-                        image_data: image_data
+                        image_data: image_data,
+                        emoji: emoji
                     }));
-                    console.log('귓속말 전송:', message, '->', target_nickname, image_data ? '(이미지 포함)' : '');
+                    console.log('귓속말 전송:', message, '->', target_nickname, image_data ? '(이미지 포함)' : '', emoji ? '(이모티콘 포함)' : '');
                 } else {
                     ws_ref.current.send(JSON.stringify({
                         type: 'message',
                         message: message,
-                        image_data: image_data
+                        image_data: image_data,
+                        emoji: emoji
                     }));
-                    console.log('메시지 전송:', message, image_data ? '(이미지 포함)' : '');
+                    console.log('메시지 전송:', message, image_data ? '(이미지 포함)' : '', emoji ? '(이모티콘 포함)' : '');
                 }
             } catch (error) {
                 console.error('메시지 전송 실패:', error);
@@ -251,7 +327,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 <div className="max-w-4xl mx-auto">
                     {messages.map((msg, index) => {
                         const unique_key = `${msg.type}-${msg.timestamp}-${msg.nickname}-${index}`;
-                        if (msg.type === 'message' && (msg.message || msg.image_data)) {
+                        if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji)) {
                             return (
                                 <ChatMessage
                                     key={unique_key}
@@ -260,9 +336,10 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                     timestamp={msg.timestamp}
                                     isOwn={msg.nickname === nickname}
                                     image_data={msg.image_data}
+                                    emoji={msg.emoji}
                                 />
                             );
-                        } else if (msg.type === 'whisper' && (msg.message || msg.image_data) && msg.target_nickname) {
+                        } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji) && msg.target_nickname) {
                             const is_sender = msg.nickname === nickname;
                             const is_receiver = msg.target_nickname.toLowerCase() === nickname.toLowerCase();
                             
@@ -278,6 +355,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                         target_nickname={msg.target_nickname}
                                         current_nickname={nickname}
                                         image_data={msg.image_data}
+                                        emoji={msg.emoji}
                                     />
                                 );
                             }

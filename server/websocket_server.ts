@@ -9,6 +9,7 @@ interface ChatMessage {
     user_list?: string[];
     target_nickname?: string;
     image_data?: string;
+    emoji?: string;
 }
 
 const wss = new WebSocketServer({ 
@@ -82,17 +83,18 @@ wss.on('connection', (ws: WebSocket) => {
                     nickname: nickname,
                     message: parsed_data.message,
                     image_data: parsed_data.image_data,
+                    emoji: parsed_data.emoji,
                     timestamp: Date.now()
                 };
                 
                 broadcast(chat_message);
-                console.log(`${nickname}: ${parsed_data.message}${parsed_data.image_data ? ' (이미지 포함)' : ''}`);
+                console.log(`${nickname}: ${parsed_data.message}${parsed_data.image_data ? ' (이미지 포함)' : ''}${parsed_data.emoji ? ' (이모티콘 포함)' : ''}`);
             } else if (parsed_data.type === 'whisper') {
                 const sender_nickname = clients.get(ws) || '익명';
                 const target_nickname = parsed_data.target_nickname;
                 const whisper_message = parsed_data.message;
                 
-                if (!target_nickname || (!whisper_message && !parsed_data.image_data)) {
+                if (!target_nickname || (!whisper_message && !parsed_data.image_data && !parsed_data.emoji)) {
                     return;
                 }
                 
@@ -102,11 +104,12 @@ wss.on('connection', (ws: WebSocket) => {
                     target_nickname: target_nickname,
                     message: whisper_message,
                     image_data: parsed_data.image_data,
+                    emoji: parsed_data.emoji,
                     timestamp: Date.now()
                 };
                 
                 sendWhisper(whisper, ws);
-                console.log(`${sender_nickname} -> ${target_nickname}: ${whisper_message || '[이미지]'}`);
+                console.log(`${sender_nickname} -> ${target_nickname}: ${whisper_message || parsed_data.emoji || '[이미지]'}`);
             }
         } catch (error) {
             console.error('메시지 파싱 오류:', error);

@@ -3,7 +3,7 @@
 import { useState, KeyboardEvent, useRef } from 'react';
 
 interface ChatInputProps {
-    onSendMessage: (message: string, target_nickname?: string, image_data?: string) => void;
+    onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string) => void;
     disabled?: boolean;
     user_list: string[];
     current_nickname: string;
@@ -12,20 +12,23 @@ interface ChatInputProps {
 export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname }: ChatInputProps) {
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
+    const [selected_emoji, setSelectedEmoji] = useState<string>('');
     const file_input_ref = useRef<HTMLInputElement>(null);
+    const emoji_input_ref = useRef<HTMLInputElement>(null);
     const [is_uploading, setIsUploading] = useState(false);
 
     const available_users = user_list.filter(user => user.toLowerCase() !== current_nickname.toLowerCase());
 
     const handleSend = () => {
         const trimmed_message = message.trim();
-        if (trimmed_message && !disabled) {
+        if ((trimmed_message || selected_emoji) && !disabled) {
             if (selected_target) {
-                onSendMessage(trimmed_message, selected_target);
+                onSendMessage(trimmed_message, selected_target, undefined, selected_emoji);
             } else {
-                onSendMessage(trimmed_message);
+                onSendMessage(trimmed_message, undefined, undefined, selected_emoji);
             }
             setMessage('');
+            setSelectedEmoji('');
         }
     };
 
@@ -130,6 +133,28 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 </label>
                 <input
                     type="text"
+                    ref={emoji_input_ref}
+                    value={selected_emoji}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        const emoji_regex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
+                        const emojis = value.match(emoji_regex);
+                        if (emojis && emojis.length === 1) {
+                            setSelectedEmoji(emojis[0]);
+                        } else if (emojis && emojis.length > 1) {
+                            setSelectedEmoji('');
+                            alert('이모티콘은 하나만 선택할 수 있습니다.');
+                        } else {
+                            setSelectedEmoji(value);
+                        }
+                    }}
+                    placeholder="😀"
+                    maxLength={1}
+                    className="px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors font-mono text-center w-10 md:w-12"
+                    disabled={disabled}
+                />
+                <input
+                    type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -141,7 +166,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 />
                 <button
                     onClick={handleSend}
-                    disabled={disabled || !message.trim()}
+                    disabled={disabled || (!message.trim() && !selected_emoji)}
                     className="px-3 py-2 md:px-6 md:py-3 bg-slate-800 text-slate-200 rounded font-bold hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed transition-colors font-mono text-xs md:text-base"
                 >
                     <span className="hidden md:inline">[SEND]</span>

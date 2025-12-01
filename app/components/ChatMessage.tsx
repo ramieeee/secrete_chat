@@ -9,6 +9,7 @@ interface ChatMessageProps {
     target_nickname?: string;
     current_nickname?: string;
     image_data?: string;
+    emoji?: string;
 }
 
 export default function ChatMessage({ 
@@ -19,7 +20,8 @@ export default function ChatMessage({
     isWhisper = false,
     target_nickname,
     current_nickname,
-    image_data
+    image_data,
+    emoji
 }: ChatMessageProps) {
     const formatTime = (timestamp: number) => {
         const date = new Date(timestamp);
@@ -78,7 +80,15 @@ export default function ChatMessage({
                             />
                         </div>
                     )}
-                    {message && <p className="text-sm break-words">{message}</p>}
+                    {emoji && !message && !image_data && (
+                        <div className="text-6xl text-center py-2">
+                            {emoji}
+                        </div>
+                    )}
+                    {emoji && (message || image_data) && (
+                        <span className="text-2xl mr-2">{emoji}</span>
+                    )}
+                    {message && <p className="text-sm break-words inline">{message}</p>}
                 </div>
                 <span className="text-xs text-slate-600 mt-1 px-2 font-mono">
                     {formatTime(timestamp)}
