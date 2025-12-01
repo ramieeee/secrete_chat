@@ -43,6 +43,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const read_messages_ref = useRef<Set<string>>(new Set());
     const is_visible_ref = useRef(true);
     const messages_ref = useRef<Message[]>([]);
+    const title_blink_interval_ref = useRef<NodeJS.Timeout | null>(null);
     
     useEffect(() => {
         onDisconnect_ref.current = onDisconnect;
@@ -245,7 +246,28 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         }, 10000);
 
         const handle_visibility_change = () => {
+            const was_hidden = !is_visible_ref.current;
             is_visible_ref.current = !document.hidden;
+            
+            if (is_visible_ref.current && was_hidden) {
+                const container = messages_container_ref.current;
+                if (container) {
+                    const scroll_height = container.scrollHeight;
+                    const scroll_top = container.scrollTop;
+                    const client_height = container.clientHeight;
+                    const distance_from_bottom = scroll_height - scroll_top - client_height;
+                    const is_at_bottom = distance_from_bottom < 100;
+                    
+                    if (is_at_bottom) {
+                        if (title_blink_interval_ref.current) {
+                            clearInterval(title_blink_interval_ref.current);
+                            title_blink_interval_ref.current = null;
+                            document.title = 'chat programme';
+                        }
+                    }
+                }
+            }
+            
             if (is_visible_ref.current && ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
                 messages_ref.current.forEach((msg) => {
                     if (msg.message_id && !read_messages_ref.current.has(msg.message_id) && msg.nickname !== nickname) {
@@ -323,6 +345,12 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             const is_near_bottom = distance_from_bottom < 100;
             setShowScrollButton(!is_near_bottom && messages.length > 0);
             was_at_bottom_ref.current = is_near_bottom;
+            
+            if (is_near_bottom && !document.hidden && title_blink_interval_ref.current) {
+                clearInterval(title_blink_interval_ref.current);
+                title_blink_interval_ref.current = null;
+                document.title = 'chat programme';
+            }
         };
 
         const setup_scroll_listener = () => {
@@ -346,13 +374,50 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     useEffect(() => {
         const last_message = messages[messages.length - 1];
         if (last_message && last_message.type === 'message' && last_message.nickname !== nickname) {
-            const original_title = document.title;
+            if (title_blink_interval_ref.current) {
+                clearInterval(title_blink_interval_ref.current);
+                title_blink_interval_ref.current = null;
+            }
+            
+            const original_title = 'chat programme';
             let blink_count = 0;
             const max_blinks = 10;
             
+            const container = messages_container_ref.current;
+            const is_at_bottom = container ? (() => {
+                const scroll_height = container.scrollHeight;
+                const scroll_top = container.scrollTop;
+                const client_height = container.clientHeight;
+                const distance_from_bottom = scroll_height - scroll_top - client_height;
+                return distance_from_bottom < 100;
+            })() : false;
+            
+            if (!document.hidden && is_at_bottom) {
+                return;
+            }
+            
             const blink_interval = setInterval(() => {
+                if (!document.hidden) {
+                    const current_container = messages_container_ref.current;
+                    if (current_container) {
+                        const scroll_height = current_container.scrollHeight;
+                        const scroll_top = current_container.scrollTop;
+                        const client_height = current_container.clientHeight;
+                        const distance_from_bottom = scroll_height - scroll_top - client_height;
+                        const is_currently_at_bottom = distance_from_bottom < 100;
+                        
+                        if (is_currently_at_bottom) {
+                            clearInterval(blink_interval);
+                            title_blink_interval_ref.current = null;
+                            document.title = original_title;
+                            return;
+                        }
+                    }
+                }
+                
                 if (blink_count >= max_blinks) {
                     clearInterval(blink_interval);
+                    title_blink_interval_ref.current = null;
                     document.title = original_title;
                     return;
                 }
@@ -365,8 +430,13 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 blink_count++;
             }, 500);
             
+            title_blink_interval_ref.current = blink_interval;
+            
             return () => {
-                clearInterval(blink_interval);
+                if (title_blink_interval_ref.current === blink_interval) {
+                    clearInterval(blink_interval);
+                    title_blink_interval_ref.current = null;
+                }
                 document.title = original_title;
             };
         }
