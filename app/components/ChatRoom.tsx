@@ -157,21 +157,21 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
 
     useEffect(() => {
         const cleanup_old_messages = () => {
-            const now = Date.now();
-            const five_minutes = 5 * 60 * 1000;
-            
             setMessages((prev) => {
-                const filtered = prev.filter((msg) => {
+                const now = Date.now();
+                const five_minutes = 5 * 60 * 1000;
+                
+                return prev.filter((msg) => {
                     if (msg.type === 'message' || msg.type === 'whisper') {
-                        return (now - msg.timestamp) < five_minutes;
+                        const message_age = now - msg.timestamp;
+                        return message_age < five_minutes;
                     }
                     return true;
                 });
-                return filtered;
             });
         };
 
-        const interval = setInterval(cleanup_old_messages, 60000);
+        const interval = setInterval(cleanup_old_messages, 10000);
 
         return () => clearInterval(interval);
     }, []);
@@ -214,7 +214,6 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
 
     return (
         <div className="flex flex-col h-screen bg-black relative overflow-hidden">
-            <UserListChip user_count={user_list.length} user_list={user_list} />
             <div className="relative bg-slate-950 border-b border-slate-800 px-2 py-2 md:px-4 md:py-3">
                 <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
                     <div className="flex items-center gap-2 md:gap-3 flex-wrap">
@@ -225,6 +224,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         <span className="text-xs md:text-sm text-slate-500 font-mono">
                             {isConnected ? '[ONLINE]' : connectionError ? '[ERROR]' : '[CONNECTING...]'}
                         </span>
+                        <UserListChip user_count={user_list.length} user_list={user_list} />
                     </div>
                     <div className="flex items-center gap-2 md:gap-3">
                         <span className="text-xs md:text-sm text-slate-400 font-mono hidden sm:inline">

@@ -32,16 +32,16 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
     }, [is_expanded]);
 
     return (
-        <div ref={container_ref} className="fixed top-16 left-2 md:top-4 md:left-4 z-50">
+        <div ref={container_ref} className="relative z-50">
             <button
                 onClick={toggle_expand}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono hover:bg-slate-800 transition-colors md:px-3 md:py-1.5"
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono hover:bg-slate-800 transition-colors"
             >
-                <span className="hidden md:inline">현재 사용자: </span>{user_count}명
+                {user_count}명
             </button>
             
             {is_expanded && (
-                <div className="absolute top-12 left-0 bg-slate-900 border border-slate-700 rounded-lg p-4 min-w-[200px] shadow-lg expand-animation">
+                <div className="absolute top-10 left-0 bg-slate-900 border border-slate-700 rounded-lg p-4 min-w-[200px] shadow-lg expand-animation">
                     <div className="mb-3 pb-2 border-b border-slate-700">
                         <h3 className="text-sm font-bold text-slate-300 font-mono">접속 중인 사용자</h3>
                         <p className="text-xs text-slate-500 mt-1">총 {user_count}명</p>

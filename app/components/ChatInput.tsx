@@ -68,12 +68,11 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             
             reader.onload = (e) => {
                 const result = e.target?.result as string;
-                const image_message = `[이미지]`;
                 
                 if (selected_target) {
-                    onSendMessage(image_message, selected_target, result);
+                    onSendMessage('', selected_target, result);
                 } else {
-                    onSendMessage(image_message, undefined, result);
+                    onSendMessage('', undefined, result);
                 }
                 setIsUploading(false);
             };
