@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 
 interface ChatMessage {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read' | 'read_update';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -10,6 +10,9 @@ interface ChatMessage {
     target_nickname?: string;
     image_data?: string;
     emoji?: string;
+    message_id?: string;
+    read_count?: number;
+    total_users?: number;
 }
 
 const wss = new WebSocketServer({ 
@@ -20,6 +23,7 @@ const wss = new WebSocketServer({
 });
 
 const clients = new Map<WebSocket, string>();
+const message_readers = new Map<string, Set<string>>();
 
 wss.on('listening', () => {
     console.log('웹소켓 서버가 포트 9999에서 실행 중입니다.');
@@ -33,6 +37,10 @@ wss.on('connection', (ws: WebSocket) => {
             const parsed_data = JSON.parse(data.toString());
             
             if (parsed_data.type === 'join') {
+                if (clients.has(ws)) {
+                    return;
+                }
+                
                 const nickname = parsed_data.nickname || '익명';
                 const trimmed_nickname = nickname.trim();
                 
@@ -48,21 +56,22 @@ wss.on('connection', (ws: WebSocket) => {
                     return;
                 }
                 
-                const is_duplicate = Array.from(clients.values()).some(
-                    (existing_nickname) => existing_nickname.toLowerCase() === trimmed_nickname.toLowerCase()
-                );
+                const existing_ws = Array.from(clients.entries()).find(
+                    ([, existing_nickname]) => existing_nickname.toLowerCase() === trimmed_nickname.toLowerCase()
+                )?.[0];
                 
-                if (is_duplicate) {
-                    const reject_message: ChatMessage = {
-                        type: 'join_rejected',
+                if (existing_ws && existing_ws !== ws) {
+                    if (existing_ws.readyState === WebSocket.OPEN) {
+                        existing_ws.close(1000, '새로운 연결로 인한 종료');
+                    }
+                    clients.delete(existing_ws);
+                    
+                    const leave_message: ChatMessage = {
+                        type: 'leave',
                         nickname: trimmed_nickname,
-                        timestamp: Date.now(),
-                        reason: '이미 사용 중인 닉네임입니다.'
+                        timestamp: Date.now()
                     };
-                    ws.send(JSON.stringify(reject_message));
-                    ws.close(1008, '닉네임 중복');
-                    console.log(`${trimmed_nickname} 닉네임 중복으로 입장 거부`);
-                    return;
+                    broadcast(leave_message, existing_ws);
                 }
                 
                 clients.set(ws, trimmed_nickname);
@@ -77,20 +86,77 @@ wss.on('connection', (ws: WebSocket) => {
                 broadcastUserList();
                 console.log(`${trimmed_nickname}님이 입장했습니다.`);
             } else if (parsed_data.type === 'message') {
-                const nickname = clients.get(ws) || '익명';
+                if (!clients.has(ws)) {
+                    const reject_message: ChatMessage = {
+                        type: 'join_rejected',
+                        nickname: '',
+                        timestamp: Date.now(),
+                        reason: '먼저 입장해주세요.'
+                    };
+                    ws.send(JSON.stringify(reject_message));
+                    return;
+                }
+                
+                const nickname = clients.get(ws);
+                if (!nickname) return;
+                
+                const message_id = `${Date.now()}-${nickname}-${Math.random().toString(36).substring(7)}`;
+                const total_users = clients.size;
+                const unread_count = total_users > 1 ? total_users - 1 : 0;
+                
                 const chat_message: ChatMessage = {
                     type: 'message',
                     nickname: nickname,
                     message: parsed_data.message,
                     image_data: parsed_data.image_data,
                     emoji: parsed_data.emoji,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    message_id: message_id,
+                    read_count: unread_count,
+                    total_users: total_users
                 };
                 
+                message_readers.set(message_id, new Set());
                 broadcast(chat_message);
-                console.log(`${nickname}: ${parsed_data.message}${parsed_data.image_data ? ' (이미지 포함)' : ''}${parsed_data.emoji ? ' (이모티콘 포함)' : ''}`);
+            } else if (parsed_data.type === 'read' && parsed_data.message_id) {
+                if (!clients.has(ws)) return;
+                const reader_nickname = clients.get(ws);
+                if (!reader_nickname) return;
+                
+                const message_id = parsed_data.message_id;
+                const readers = message_readers.get(message_id);
+                
+                if (readers && !readers.has(reader_nickname)) {
+                    readers.add(reader_nickname);
+                    const total_users = clients.size;
+                    const unread_count = total_users > 1 ? Math.max(0, total_users - 1 - readers.size) : 0;
+                    
+                    const read_update: ChatMessage = {
+                        type: 'read_update',
+                        nickname: '',
+                        timestamp: Date.now(),
+                        message_id: message_id,
+                        read_count: unread_count,
+                        total_users: total_users
+                    };
+                    
+                    broadcast(read_update);
+                }
             } else if (parsed_data.type === 'whisper') {
-                const sender_nickname = clients.get(ws) || '익명';
+                if (!clients.has(ws)) {
+                    const reject_message: ChatMessage = {
+                        type: 'join_rejected',
+                        nickname: '',
+                        timestamp: Date.now(),
+                        reason: '먼저 입장해주세요.'
+                    };
+                    ws.send(JSON.stringify(reject_message));
+                    return;
+                }
+                
+                const sender_nickname = clients.get(ws);
+                if (!sender_nickname) return;
+                
                 const target_nickname = parsed_data.target_nickname;
                 const whisper_message = parsed_data.message;
                 
@@ -116,9 +182,8 @@ wss.on('connection', (ws: WebSocket) => {
         }
     });
 
-    ws.on('close', (code: number, reason: string) => {
+    ws.on('close', () => {
         const nickname = clients.get(ws);
-        console.log(`${nickname}님이 퇴장했습니다.`, reason);
         if (nickname) {
             const leave_message: ChatMessage = {
                 type: 'leave',
@@ -128,6 +193,11 @@ wss.on('connection', (ws: WebSocket) => {
             
             broadcast(leave_message, ws);
             clients.delete(ws);
+            
+            message_readers.forEach((readers) => {
+                readers.delete(nickname);
+            });
+            
             broadcastUserList();
             console.log(`${nickname}님이 퇴장했습니다.`);
         }
@@ -140,18 +210,15 @@ wss.on('connection', (ws: WebSocket) => {
 
 function broadcast(message: ChatMessage, exclude_client?: WebSocket) {
     const message_string = JSON.stringify(message);
-    let sent_count = 0;
     clients.forEach((_, client) => {
         if (client !== exclude_client && client.readyState === WebSocket.OPEN) {
             try {
                 client.send(message_string);
-                sent_count++;
             } catch (error) {
                 console.error('메시지 전송 오류:', error);
             }
         }
     });
-    console.log(`메시지 브로드캐스트: ${sent_count}명에게 전송`);
 }
 
 function broadcastUserList() {

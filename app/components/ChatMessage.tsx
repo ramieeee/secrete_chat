@@ -10,6 +10,9 @@ interface ChatMessageProps {
     current_nickname?: string;
     image_data?: string;
     emoji?: string;
+    message_id?: string;
+    read_count?: number;
+    total_users?: number;
 }
 
 export default function ChatMessage({ 
@@ -21,7 +24,10 @@ export default function ChatMessage({
     target_nickname,
     current_nickname,
     image_data,
-    emoji
+    emoji,
+    message_id,
+    read_count,
+    total_users
 }: ChatMessageProps) {
     const formatTime = (timestamp: number) => {
         const date = new Date(timestamp);
@@ -64,6 +70,7 @@ export default function ChatMessage({
                                 ? 'bg-slate-900 text-slate-300 border border-purple-600 rounded-tl-none'
                                 : 'bg-slate-900 text-slate-300 border border-slate-700 rounded-tl-none'
                     }`}
+                    style={{ fontFamily: 'var(--font-sans)' }}
                 >
                     {image_data && (
                         <div className="mb-2">
@@ -88,11 +95,18 @@ export default function ChatMessage({
                     {emoji && (message || image_data) && (
                         <span className="text-2xl mr-2">{emoji}</span>
                     )}
-                    {message && <p className="text-sm break-words inline">{message}</p>}
+                    {message && <p className="text-sm break-words inline leading-relaxed">{message}</p>}
                 </div>
-                <span className="text-xs text-slate-600 mt-1 px-2 font-mono">
-                    {formatTime(timestamp)}
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-slate-600 px-2 font-mono">
+                        {formatTime(timestamp)}
+                    </span>
+                    {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
+                        <span className="text-xs text-white px-2 font-mono">
+                            {read_count}
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
     );

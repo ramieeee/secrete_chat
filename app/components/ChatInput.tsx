@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, KeyboardEvent, useRef } from 'react';
+import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 interface ChatInputProps {
     onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string) => void;
@@ -13,9 +13,30 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
     const [selected_emoji, setSelectedEmoji] = useState<string>('');
+    const [show_emoji_picker, setShowEmojiPicker] = useState(false);
     const file_input_ref = useRef<HTMLInputElement>(null);
-    const emoji_input_ref = useRef<HTMLInputElement>(null);
+    const emoji_picker_ref = useRef<HTMLDivElement>(null);
     const [is_uploading, setIsUploading] = useState(false);
+
+    const common_emojis = [
+        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+        '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
+        '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
+        '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
+        '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+        '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
+        '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
+        '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
+        '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
+        '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+        '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
+        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+        '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘',
+        '💝', '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘',
+        '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪',
+        '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉',
+        '⭐', '🌟', '✨', '💫', '🔥', '💯', '✅', '❌'
+    ];
 
     const available_users = user_list.filter(user => user.toLowerCase() !== current_nickname.toLowerCase());
 
@@ -101,6 +122,27 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
         }
     };
 
+    const handleEmojiClick = (emoji: string) => {
+        setSelectedEmoji(emoji);
+        setShowEmojiPicker(false);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (emoji_picker_ref.current && !emoji_picker_ref.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+
+        if (show_emoji_picker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [show_emoji_picker]);
+
     return (
         <div className="relative border-t border-slate-800 bg-slate-950 p-2 md:p-4">
             <div className="flex gap-1 md:gap-2 max-w-4xl mx-auto">
@@ -131,28 +173,30 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 >
                     📷
                 </label>
-                <input
-                    type="text"
-                    ref={emoji_input_ref}
-                    value={selected_emoji}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        const emoji_regex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
-                        const emojis = value.match(emoji_regex);
-                        if (emojis && emojis.length === 1) {
-                            setSelectedEmoji(emojis[0]);
-                        } else if (emojis && emojis.length > 1) {
-                            setSelectedEmoji('');
-                            alert('이모티콘은 하나만 선택할 수 있습니다.');
-                        } else {
-                            setSelectedEmoji(value);
-                        }
-                    }}
-                    placeholder="😀"
-                    maxLength={1}
-                    className="px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors font-mono text-center w-10 md:w-12"
-                    disabled={disabled}
-                />
+                <div className="relative" ref={emoji_picker_ref}>
+                    <button
+                        type="button"
+                        onClick={() => setShowEmojiPicker(!show_emoji_picker)}
+                        disabled={disabled}
+                        className={`px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-colors font-mono text-center w-10 md:w-12 disabled:bg-slate-950 disabled:cursor-not-allowed ${selected_emoji ? 'border-slate-600' : ''}`}
+                    >
+                        {selected_emoji || '😀'}
+                    </button>
+                    {show_emoji_picker && (
+                        <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-700 rounded-lg p-3 max-h-64 overflow-y-auto shadow-lg z-50 w-64 grid grid-cols-8 gap-1">
+                            {common_emojis.map((emoji, index) => (
+                                <button
+                                    key={index}
+                                    type="button"
+                                    onClick={() => handleEmojiClick(emoji)}
+                                    className="text-xl hover:bg-slate-800 rounded p-1 transition-colors hover:scale-110"
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <input
                     type="text"
                     value={message}
@@ -161,7 +205,8 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                     onPaste={handlePaste}
                     placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요... (Ctrl+V로 이미지 붙여넣기)"}
                     disabled={disabled}
-                    className="flex-1 px-2 py-2 md:px-4 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors font-mono text-sm md:text-base"
+                    className="flex-1 px-2 py-2 md:px-4 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors text-sm md:text-base"
+                    style={{ fontFamily: 'var(--font-sans)' }}
                     maxLength={500}
                 />
                 <button

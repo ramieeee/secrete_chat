@@ -7,7 +7,7 @@ import SystemMessage from './SystemMessage';
 import UserListChip from './UserListChip';
 
 interface Message {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -16,6 +16,9 @@ interface Message {
     target_nickname?: string;
     image_data?: string;
     emoji?: string;
+    message_id?: string;
+    read_count?: number;
+    total_users?: number;
 }
 
 interface ChatRoomProps {
@@ -26,13 +29,19 @@ interface ChatRoomProps {
 export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isConnected, setIsConnected] = useState(false);
+    const [isJoined, setIsJoined] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const [user_list, setUserList] = useState<string[]>([]);
+    const [show_scroll_button, setShowScrollButton] = useState(false);
     const ws_ref = useRef<WebSocket | null>(null);
     const messages_end_ref = useRef<HTMLDivElement>(null);
+    const messages_container_ref = useRef<HTMLDivElement>(null);
     const onDisconnect_ref = useRef(onDisconnect);
     const reconnect_timeout_ref = useRef<NodeJS.Timeout | null>(null);
     const is_reconnecting_ref = useRef(false);
+    const was_at_bottom_ref = useRef(true);
+    const read_messages_ref = useRef<Set<string>>(new Set());
+    const is_visible_ref = useRef(true);
     
     useEffect(() => {
         onDisconnect_ref.current = onDisconnect;
@@ -70,6 +79,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     if (is_mounted && ws && ws.readyState === WebSocket.OPEN) {
                         setIsConnected(true);
                         setConnectionError(null);
+                        setIsJoined(false);
                         is_reconnecting_ref.current = false;
                         if (reconnect_timeout_ref.current) {
                             clearTimeout(reconnect_timeout_ref.current);
@@ -96,11 +106,60 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         if (message.type === 'user_list' && message.user_list) {
                             if (is_mounted) {
                                 setUserList(message.user_list);
+                                setIsJoined(true);
+                            }
+                            return;
+                        }
+                        if (message.type === 'join' && message.nickname === nickname) {
+                            if (is_mounted) {
+                                setIsJoined(true);
+                            }
+                        }
+                        if (message.type === 'read_update' && message.message_id) {
+                            if (is_mounted) {
+                                setMessages((prev) => prev.map((msg) => {
+                                    if (msg.message_id === message.message_id) {
+                                        return { ...msg, read_count: message.read_count, total_users: message.total_users };
+                                    }
+                                    return msg;
+                                }));
                             }
                             return;
                         }
                         if (is_mounted) {
-                            setMessages((prev) => [...prev, message]);
+                            const container = messages_container_ref.current;
+                            if (container) {
+                                const scroll_height = container.scrollHeight;
+                                const scroll_top = container.scrollTop;
+                                const client_height = container.clientHeight;
+                                const distance_from_bottom = scroll_height - scroll_top - client_height;
+                                was_at_bottom_ref.current = distance_from_bottom <= 400;
+                            }
+                            
+                            const new_message = {
+                                ...message,
+                                message_id: message.message_id || `${message.type}-${message.timestamp}-${message.nickname}-${Date.now()}`
+                            };
+                            
+                            setMessages((prev) => {
+                                const updated = [...prev, new_message];
+                                
+                                if (is_visible_ref.current && new_message.nickname !== nickname && new_message.message_id) {
+                                    setTimeout(() => {
+                                        if (!read_messages_ref.current.has(new_message.message_id)) {
+                                            read_messages_ref.current.add(new_message.message_id);
+                                            if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+                                                ws_ref.current.send(JSON.stringify({
+                                                    type: 'read',
+                                                    message_id: new_message.message_id
+                                                }));
+                                            }
+                                        }
+                                    }, 500);
+                                }
+                                
+                                return updated;
+                            });
                         }
                     } catch (error) {
                         console.error('메시지 파싱 오류:', error);
@@ -119,6 +178,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     console.log('웹소켓 연결 종료', event.code, event.reason);
                     if (is_mounted) {
                         setIsConnected(false);
+                        setIsJoined(false);
                         if (ws_ref.current === ws) {
                             ws_ref.current = null;
                         }
@@ -135,12 +195,12 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                             return;
                         }
                         
-                        if (is_mounted) {
-                            setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
+                        if (is_mounted && event.code !== 1000 && event.code !== 1008) {
                             is_reconnecting_ref.current = false;
                             
                             reconnect_timeout_ref.current = setTimeout(() => {
                                 if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
+                                    setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
                                     connectWebSocket();
                                 }
                             }, 5000);
@@ -167,15 +227,33 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
 
         const check_connection_interval = setInterval(() => {
             if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
-                if (!is_reconnecting_ref.current) {
+                if (!is_reconnecting_ref.current && !reconnect_timeout_ref.current) {
                     setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
                     connectWebSocket();
                 }
             }
-        }, 5000);
+        }, 10000);
+
+        const handle_visibility_change = () => {
+            is_visible_ref.current = !document.hidden;
+            if (is_visible_ref.current && ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+                messages.forEach((msg) => {
+                    if (msg.message_id && !read_messages_ref.current.has(msg.message_id) && msg.nickname !== nickname) {
+                        read_messages_ref.current.add(msg.message_id);
+                        ws_ref.current?.send(JSON.stringify({
+                            type: 'read',
+                            message_id: msg.message_id
+                        }));
+                    }
+                });
+            }
+        };
+
+        document.addEventListener('visibilitychange', handle_visibility_change);
 
         return () => {
             is_mounted = false;
+            document.removeEventListener('visibilitychange', handle_visibility_change);
             if (reconnect_timeout_ref.current) {
                 clearTimeout(reconnect_timeout_ref.current);
                 reconnect_timeout_ref.current = null;
@@ -189,11 +267,71 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             }
             is_reconnecting_ref.current = false;
         };
-    }, [nickname]);
+    }, [nickname, messages]);
 
     useEffect(() => {
-        messages_end_ref.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        const container = messages_container_ref.current;
+        if (!container || messages.length === 0) return;
+
+        const last_message = messages[messages.length - 1];
+        const is_my_message = last_message && (
+            (last_message.type === 'message' && last_message.nickname === nickname) ||
+            (last_message.type === 'whisper' && last_message.nickname === nickname)
+        );
+
+        const check_and_scroll = () => {
+            if (!container) return;
+            
+            if (is_my_message) {
+                messages_end_ref.current?.scrollIntoView({ behavior: 'smooth' });
+                was_at_bottom_ref.current = true;
+            } else {
+                const scroll_height = container.scrollHeight;
+                const scroll_top = container.scrollTop;
+                const client_height = container.clientHeight;
+                const distance_from_bottom = scroll_height - scroll_top - client_height;
+                
+                if (was_at_bottom_ref.current || distance_from_bottom < 300) {
+                    messages_end_ref.current?.scrollIntoView({ behavior: 'smooth' });
+                    was_at_bottom_ref.current = true;
+                }
+            }
+        };
+
+        setTimeout(() => {
+            requestAnimationFrame(() => {
+                check_and_scroll();
+            });
+        }, 100);
+
+        const check_scroll_position = () => {
+            if (!container) return;
+            const scroll_top = container.scrollTop;
+            const scroll_height = container.scrollHeight;
+            const client_height = container.clientHeight;
+            const distance_from_bottom = scroll_height - scroll_top - client_height;
+            const is_near_bottom = distance_from_bottom < 100;
+            setShowScrollButton(!is_near_bottom && messages.length > 0);
+            was_at_bottom_ref.current = is_near_bottom;
+        };
+
+        const setup_scroll_listener = () => {
+            if (container) {
+                check_scroll_position();
+                container.addEventListener('scroll', check_scroll_position);
+            }
+        };
+
+        requestAnimationFrame(() => {
+            setTimeout(setup_scroll_listener, 50);
+        });
+
+        return () => {
+            if (container) {
+                container.removeEventListener('scroll', check_scroll_position);
+            }
+        };
+    }, [messages, nickname]);
 
     useEffect(() => {
         const last_message = messages[messages.length - 1];
@@ -251,7 +389,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     }, []);
 
     const handleSendMessage = (message: string, target_nickname?: string, image_data?: string, emoji?: string) => {
-        if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+        if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN && isJoined) {
             try {
                 if (target_nickname) {
                     ws_ref.current.send(JSON.stringify({
@@ -276,8 +414,12 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 setConnectionError('메시지 전송에 실패했습니다.');
             }
         } else {
-            console.error('웹소켓이 연결되지 않았습니다. 상태:', ws_ref.current?.readyState);
-            setConnectionError('웹소켓이 연결되지 않았습니다.');
+            if (!isJoined) {
+                setConnectionError('입장 중입니다. 잠시 후 다시 시도해주세요.');
+            } else {
+                console.error('웹소켓이 연결되지 않았습니다. 상태:', ws_ref.current?.readyState);
+                setConnectionError('웹소켓이 연결되지 않았습니다.');
+            }
         }
     };
 
@@ -286,6 +428,10 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             ws_ref.current.close();
         }
         onDisconnect();
+    };
+
+    const scrollToBottom = () => {
+        messages_end_ref.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     return (
@@ -323,7 +469,21 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     <p className="text-xs mt-2 text-red-500/80 font-mono">웹소켓 서버 실행: <code className="bg-slate-900 px-1 rounded">npm run ws</code></p>
                 </div>
             )}
-            <div className="flex-1 overflow-y-auto px-4 py-6 relative">
+            <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 relative">
+                {show_scroll_button && (
+                    <button
+                        onClick={scrollToBottom}
+                        className="fixed bottom-24 right-4 md:right-8 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full p-2 shadow-lg border border-slate-700 transition-all hover:scale-110 z-40"
+                        title="밑으로"
+                    >
+                        <div className="flex flex-col items-center">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                            <span className="text-xs mt-0.5">밑으로</span>
+                        </div>
+                    </button>
+                )}
                 <div className="max-w-4xl mx-auto">
                     {messages.map((msg, index) => {
                         const unique_key = `${msg.type}-${msg.timestamp}-${msg.nickname}-${index}`;
@@ -337,6 +497,9 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                     isOwn={msg.nickname === nickname}
                                     image_data={msg.image_data}
                                     emoji={msg.emoji}
+                                    message_id={msg.message_id}
+                                    read_count={msg.read_count}
+                                    total_users={user_list.length}
                                 />
                             );
                         } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji) && msg.target_nickname) {
@@ -383,7 +546,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
 
             <ChatInput 
                 onSendMessage={handleSendMessage} 
-                disabled={!isConnected}
+                disabled={!isConnected || !isJoined}
                 user_list={user_list}
                 current_nickname={nickname}
             />
