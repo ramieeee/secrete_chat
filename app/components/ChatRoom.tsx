@@ -42,6 +42,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const was_at_bottom_ref = useRef(true);
     const read_messages_ref = useRef<Set<string>>(new Set());
     const is_visible_ref = useRef(true);
+    const messages_ref = useRef<Message[]>([]);
     
     useEffect(() => {
         onDisconnect_ref.current = onDisconnect;
@@ -117,12 +118,16 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         }
                         if (message.type === 'read_update' && message.message_id) {
                             if (is_mounted) {
-                                setMessages((prev) => prev.map((msg) => {
-                                    if (msg.message_id === message.message_id) {
-                                        return { ...msg, read_count: message.read_count, total_users: message.total_users };
-                                    }
-                                    return msg;
-                                }));
+                                setMessages((prev) => {
+                                    const updated = prev.map((msg) => {
+                                        if (msg.message_id === message.message_id) {
+                                            return { ...msg, read_count: message.read_count, total_users: message.total_users };
+                                        }
+                                        return msg;
+                                    });
+                                    messages_ref.current = updated;
+                                    return updated;
+                                });
                             }
                             return;
                         }
@@ -143,6 +148,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                             
                             setMessages((prev) => {
                                 const updated = [...prev, new_message];
+                                messages_ref.current = updated;
                                 
                                 if (is_visible_ref.current && new_message.nickname !== nickname && new_message.message_id) {
                                     setTimeout(() => {
@@ -191,13 +197,17 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         }
                         
                         if (event.code === 1000) {
+                            // 정상 종료 (서버에서 기존 연결을 닫은 경우 포함)
+                            // 재연결을 시도하지 않음
                             is_reconnecting_ref.current = false;
                             return;
                         }
                         
                         if (is_mounted && event.code !== 1000 && event.code !== 1008) {
+                            // 비정상 종료 - 재연결 시도
                             is_reconnecting_ref.current = false;
                             
+                            // 재연결 전에 약간의 지연을 두어 서버가 기존 연결을 정리할 시간을 줌
                             reconnect_timeout_ref.current = setTimeout(() => {
                                 if (is_mounted && (!ws_ref.current || ws_ref.current.readyState !== WebSocket.OPEN)) {
                                     setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
@@ -237,7 +247,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         const handle_visibility_change = () => {
             is_visible_ref.current = !document.hidden;
             if (is_visible_ref.current && ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
-                messages.forEach((msg) => {
+                messages_ref.current.forEach((msg) => {
                     if (msg.message_id && !read_messages_ref.current.has(msg.message_id) && msg.nickname !== nickname) {
                         read_messages_ref.current.add(msg.message_id);
                         ws_ref.current?.send(JSON.stringify({
@@ -267,7 +277,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             }
             is_reconnecting_ref.current = false;
         };
-    }, [nickname, messages]);
+    }, [nickname]);
 
     useEffect(() => {
         const container = messages_container_ref.current;
@@ -368,7 +378,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 const now = Date.now();
                 const five_minutes = 5 * 60 * 1000;
                 
-                return prev.filter((msg) => {
+                const updated = prev.filter((msg) => {
                     if (msg.type === 'message' || msg.type === 'whisper') {
                         const message_age = now - msg.timestamp;
                         if (message_age >= five_minutes) {
@@ -380,6 +390,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     }
                     return true;
                 });
+                messages_ref.current = updated;
+                return updated;
             });
         };
 

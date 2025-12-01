@@ -61,17 +61,11 @@ wss.on('connection', (ws: WebSocket) => {
                 )?.[0];
                 
                 if (existing_ws && existing_ws !== ws) {
+                    // 기존 연결을 먼저 clients에서 제거하여 close 이벤트에서 중복 처리 방지
+                    clients.delete(existing_ws);
                     if (existing_ws.readyState === WebSocket.OPEN) {
                         existing_ws.close(1000, '새로운 연결로 인한 종료');
                     }
-                    clients.delete(existing_ws);
-                    
-                    const leave_message: ChatMessage = {
-                        type: 'leave',
-                        nickname: trimmed_nickname,
-                        timestamp: Date.now()
-                    };
-                    broadcast(leave_message, existing_ws);
                 }
                 
                 clients.set(ws, trimmed_nickname);
@@ -185,6 +179,9 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('close', () => {
         const nickname = clients.get(ws);
         if (nickname) {
+            // clients에서 제거 (이미 제거되었을 수 있으므로 안전하게 처리)
+            clients.delete(ws);
+            
             const leave_message: ChatMessage = {
                 type: 'leave',
                 nickname: nickname,
@@ -192,7 +189,6 @@ wss.on('connection', (ws: WebSocket) => {
             };
             
             broadcast(leave_message, ws);
-            clients.delete(ws);
             
             message_readers.forEach((readers) => {
                 readers.delete(nickname);
