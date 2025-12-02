@@ -37,25 +37,10 @@ export default function ChatMessage({
         });
     };
 
-    const getWhisperLabel = () => {
-        if (!isWhisper || !target_nickname || !current_nickname) return null;
-        
-        if (isOwn) {
-            return `귓속말: ${nickname} -> ${target_nickname}`;
-        } else {
-            return `귓속말: ${nickname} -> ${current_nickname}`;
-        }
-    };
-
     return (
         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
-                {isWhisper && (
-                    <span className="text-sm text-purple-400 mb-1 px-2" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                        {getWhisperLabel()}
-                    </span>
-                )}
-                <div className={`flex items-start gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
                         className={`px-2 py-1 rounded-lg ${
                             isOwn
@@ -111,15 +96,22 @@ export default function ChatMessage({
                         </div>
                     )}
                     {isOwn && (
-                        <div className="flex flex-row items-center gap-1 flex-shrink-0">
-                            <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                {formatTime(timestamp)}
-                            </span>
-                            {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                    {read_count}
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                            {isWhisper && target_nickname && (
+                                <span className="text-xs text-purple-400 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    to: {target_nickname}
                                 </span>
                             )}
+                            <div className="flex flex-row items-center gap-1">
+                                <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    {formatTime(timestamp)}
+                                </span>
+                                {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
+                                    <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                        {read_count}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
