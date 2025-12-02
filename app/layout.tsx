@@ -10,8 +10,8 @@ const doHyeon = Do_Hyeon({
 });
 
 export const metadata: Metadata = {
-  title: "chat programme",
-  description: "실시간 웹소켓 채팅 애플리케이션",
+  title: "Chat Programme",
+  description: "채팅 프로그램램",
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },

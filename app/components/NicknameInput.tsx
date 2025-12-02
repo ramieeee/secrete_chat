@@ -26,7 +26,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
             <div className="relative bg-slate-950 rounded-lg p-8 w-full max-w-md border border-slate-700">
                 <div className="text-center mb-6">
                     <h1 className="text-sm text-slate-300 mb-2" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                        chat programme
+                        Let us Chat!
                     </h1>
                     <p className="text-sm text-slate-500" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>닉네임을 입력하고 네트워크에 접속하세요</p>
                 </div>

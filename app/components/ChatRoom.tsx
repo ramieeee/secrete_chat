@@ -553,11 +553,11 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             <div className="relative bg-slate-950 border-b border-slate-800 px-2 py-2 md:px-4 md:py-3">
                 <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
                     <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                        <h1 className="text-sm text-slate-300" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            chat programme
+                        <h1 className="text-sm text-slate-300 font-bold" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            Let us Chat!
                         </h1>
                         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm text-slate-500" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                        <span className="text-sm text-slate-500 font-bold" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                             {isConnected ? '[ONLINE]' : connectionError ? '[ERROR]' : '[CONNECTING...]'}
                         </span>
                         <UserListChip user_count={user_list.length} user_list={user_list} />
