@@ -381,7 +381,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             
             const original_title = 'chat programme';
             let blink_count = 0;
-            const max_blinks = 10;
+            const max_blinks = 20;
             
             const container = messages_container_ref.current;
             const is_at_bottom = container ? (() => {
@@ -392,53 +392,85 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 return distance_from_bottom < 100;
             })() : false;
             
-            if (!document.hidden && is_at_bottom) {
-                return;
+            // 브라우저 알림 권한 요청 및 알림 표시
+            const show_browser_notification = async () => {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const message_preview = last_message.message 
+                        ? (last_message.message.length > 50 ? last_message.message.substring(0, 50) + '...' : last_message.message)
+                        : (last_message.image_data ? '이미지' : last_message.emoji || '메시지');
+                    
+                    new Notification('새 메시지', {
+                        body: `${last_message.nickname}: ${message_preview}`,
+                        icon: '/icon.svg',
+                        tag: 'chat-message',
+                        requireInteraction: false
+                    });
+                } else if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().then((permission) => {
+                        if (permission === 'granted' && last_message) {
+                            const message_preview = last_message.message 
+                                ? (last_message.message.length > 50 ? last_message.message.substring(0, 50) + '...' : last_message.message)
+                                : (last_message.image_data ? '이미지' : last_message.emoji || '메시지');
+                            
+                            new Notification('새 메시지', {
+                                body: `${last_message.nickname}: ${message_preview}`,
+                                icon: '/icon.svg',
+                                tag: 'chat-message',
+                                requireInteraction: false
+                            });
+                        }
+                    });
+                }
+            };
+            
+            // 창이 아래로 내려가 있거나 숨겨져 있을 때만 알림
+            if (document.hidden || !is_at_bottom) {
+                show_browser_notification();
             }
             
-            const blink_interval = setInterval(() => {
-                if (!document.hidden) {
-                    const current_container = messages_container_ref.current;
-                    if (current_container) {
-                        const scroll_height = current_container.scrollHeight;
-                        const scroll_top = current_container.scrollTop;
-                        const client_height = current_container.clientHeight;
-                        const distance_from_bottom = scroll_height - scroll_top - client_height;
-                        const is_currently_at_bottom = distance_from_bottom < 100;
-                        
-                        if (is_currently_at_bottom) {
-                            clearInterval(blink_interval);
-                            title_blink_interval_ref.current = null;
-                            document.title = original_title;
-                            return;
+            // 타이틀 깜빡임: 창이 아래로 내려가 있거나 숨겨져 있을 때
+            if (document.hidden || !is_at_bottom) {
+                const blink_interval = setInterval(() => {
+                    if (!document.hidden) {
+                        const current_container = messages_container_ref.current;
+                        if (current_container) {
+                            const scroll_height = current_container.scrollHeight;
+                            const scroll_top = current_container.scrollTop;
+                            const client_height = current_container.clientHeight;
+                            const distance_from_bottom = scroll_height - scroll_top - client_height;
+                            const is_currently_at_bottom = distance_from_bottom < 100;
+                            
+                            if (is_currently_at_bottom) {
+                                clearInterval(blink_interval);
+                                title_blink_interval_ref.current = null;
+                                document.title = original_title;
+                                return;
+                            }
                         }
                     }
-                }
-                
-                if (blink_count >= max_blinks) {
-                    clearInterval(blink_interval);
-                    title_blink_interval_ref.current = null;
-                    document.title = original_title;
-                    return;
-                }
-                
-                if (document.hidden) {
+                    
+                    if (blink_count >= max_blinks) {
+                        clearInterval(blink_interval);
+                        title_blink_interval_ref.current = null;
+                        document.title = original_title;
+                        return;
+                    }
+                    
+                    // 창이 아래로 내려가 있거나 숨겨져 있을 때 깜빡임
                     document.title = blink_count % 2 === 0 ? '● New message - chat programme' : original_title;
-                } else {
+                    blink_count++;
+                }, 500);
+                
+                title_blink_interval_ref.current = blink_interval;
+                
+                return () => {
+                    if (title_blink_interval_ref.current === blink_interval) {
+                        clearInterval(blink_interval);
+                        title_blink_interval_ref.current = null;
+                    }
                     document.title = original_title;
-                }
-                blink_count++;
-            }, 500);
-            
-            title_blink_interval_ref.current = blink_interval;
-            
-            return () => {
-                if (title_blink_interval_ref.current === blink_interval) {
-                    clearInterval(blink_interval);
-                    title_blink_interval_ref.current = null;
-                }
-                document.title = original_title;
-            };
+                };
+            }
         }
     }, [messages, nickname]);
 

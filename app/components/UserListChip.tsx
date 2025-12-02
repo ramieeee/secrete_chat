@@ -52,8 +52,8 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
                             <div
                                 key={index}
                                 className="text-sm text-slate-300 font-mono py-1 px-2 rounded bg-slate-800/50 border border-slate-700/50 fade-in-animation"
-                                style={{ fontWeight: 500 }}
                                 style={{
+                                    fontWeight: 500,
                                     animationDelay: `${index * 0.05}s`,
                                     animationFillMode: 'both',
                                 }}
