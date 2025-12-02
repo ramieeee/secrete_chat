@@ -51,10 +51,11 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
             
             {is_expanded && (
                 <div 
-                    className="absolute top-10 left-0 border rounded-lg p-4 min-w-[200px] shadow-lg expand-animation"
+                    className="absolute top-10 left-0 border rounded-lg p-3 md:p-4 w-[calc(100vw-2rem)] max-w-[250px] sm:max-w-[300px] shadow-lg expand-animation"
                     style={{ 
                         backgroundColor: theme_colors.button_input_background,
-                        borderColor: theme_colors.info_text
+                        borderColor: theme_colors.info_text,
+                        maxWidth: 'min(calc(100vw - 2rem), 300px)'
                     }}
                 >
                     <div className="mb-3 pb-2 border-b" style={{ borderColor: theme_colors.info_text }}>

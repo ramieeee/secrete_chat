@@ -207,10 +207,11 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                     </button>
                     {show_emoji_picker && (
                         <div 
-                            className="absolute bottom-full left-0 mb-2 border rounded-lg p-3 max-h-64 overflow-y-auto shadow-lg z-50 w-64 grid grid-cols-8 gap-1"
+                            className="absolute bottom-full left-0 mb-2 border rounded-lg p-2 md:p-3 max-h-64 overflow-y-auto shadow-lg z-50 w-[calc(100vw-2rem)] max-w-[280px] sm:max-w-[320px] grid grid-cols-8 gap-1 expand-animation"
                             style={{ 
                                 backgroundColor: theme_colors.button_input_background,
-                                borderColor: theme_colors.info_text
+                                borderColor: theme_colors.info_text,
+                                maxWidth: 'min(calc(100vw - 2rem), 320px)'
                             }}
                         >
                             {common_emojis.map((emoji, index) => (
