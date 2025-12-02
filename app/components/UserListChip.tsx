@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface UserListChipProps {
     user_count: number;
@@ -8,6 +9,7 @@ interface UserListChipProps {
 }
 
 export default function UserListChip({ user_count, user_list }: UserListChipProps) {
+    const { theme_colors } = useTheme();
     const [is_expanded, setIsExpanded] = useState(false);
     const container_ref = useRef<HTMLDivElement>(null);
 
@@ -35,24 +37,39 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
         <div ref={container_ref} className="relative z-50">
             <button
                 onClick={toggle_expand}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
-                style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+                className="border rounded-lg px-2 py-1 text-sm transition-colors"
+                style={{ 
+                    backgroundColor: theme_colors.button_input_background,
+                    borderColor: theme_colors.info_text,
+                    color: theme_colors.input_text,
+                    fontFamily: 'var(--font-sans)', 
+                    fontWeight: 500 
+                }}
             >
                 {user_count}명
             </button>
             
             {is_expanded && (
-                <div className="absolute top-10 left-0 bg-slate-900 border border-slate-700 rounded-lg p-4 min-w-[200px] shadow-lg expand-animation">
-                    <div className="mb-3 pb-2 border-b border-slate-700">
-                        <h3 className="text-sm text-slate-300" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>접속 중인 사용자</h3>
-                        <p className="text-sm text-slate-500 mt-1" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>총 {user_count}명</p>
+                <div 
+                    className="absolute top-10 left-0 border rounded-lg p-4 min-w-[200px] shadow-lg expand-animation"
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background,
+                        borderColor: theme_colors.info_text
+                    }}
+                >
+                    <div className="mb-3 pb-2 border-b" style={{ borderColor: theme_colors.info_text }}>
+                        <h3 className="text-sm" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>접속 중인 사용자</h3>
+                        <p className="text-sm mt-1" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>총 {user_count}명</p>
                     </div>
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {user_list.map((user, index) => (
                             <div
                                 key={index}
-                                className="text-sm text-slate-300 py-1 px-2 rounded bg-slate-800/50 border border-slate-700/50 fade-in-animation"
+                                className="text-sm py-1 px-2 rounded border fade-in-animation"
                                 style={{
+                                    backgroundColor: theme_colors.chat_background,
+                                    borderColor: theme_colors.info_text,
+                                    color: theme_colors.input_text,
                                     fontFamily: 'var(--font-sans)',
                                     fontWeight: 500,
                                     animationDelay: `${index * 0.05}s`,

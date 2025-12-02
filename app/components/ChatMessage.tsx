@@ -1,5 +1,7 @@
 'use client';
 
+import { useTheme } from '../contexts/ThemeContext';
+
 interface ChatMessageProps {
     nickname: string;
     message: string;
@@ -29,6 +31,8 @@ export default function ChatMessage({
     read_count,
     total_users
 }: ChatMessageProps) {
+    const { theme_colors } = useTheme();
+    
     const formatTime = (timestamp: number) => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString('ko-KR', { 
@@ -43,15 +47,16 @@ export default function ChatMessage({
                 <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
                         className={`px-2 py-1 rounded-lg ${
-                            isOwn
-                                ? isWhisper
-                                    ? 'bg-slate-800 text-slate-200 border border-purple-600 rounded-tr-none'
-                                    : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tr-none'
-                                : isWhisper
-                                    ? 'bg-slate-900 text-slate-300 border border-purple-600 rounded-tl-none'
-                                    : 'bg-slate-900 text-slate-300 border border-slate-700 rounded-tl-none'
+                            isOwn ? 'rounded-tr-none' : 'rounded-tl-none'
                         }`}
-                        style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}
+                        style={{ 
+                            backgroundColor: theme_colors.button_input_background,
+                            color: theme_colors.input_text,
+                            borderColor: isWhisper ? '#9333ea' : theme_colors.info_text,
+                            border: '1px solid',
+                            fontFamily: 'var(--font-sans)', 
+                            fontWeight: 400 
+                        }}
                     >
                         {image_data && (
                             <div className="mb-1">
@@ -80,15 +85,15 @@ export default function ChatMessage({
                     </div>
                     {!isOwn && (
                         <div className="flex flex-col items-start gap-0.5 flex-shrink-0">
-                            <span className="text-xs text-slate-500 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                 &gt; {nickname}
                             </span>
                             <div className="flex flex-row items-center gap-1">
-                                <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     {formatTime(timestamp)}
                                 </span>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                         {read_count}
                                     </span>
                                 )}
@@ -98,16 +103,16 @@ export default function ChatMessage({
                     {isOwn && (
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                             {isWhisper && target_nickname && (
-                                <span className="text-xs text-purple-400 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                <span className="text-xs whitespace-nowrap" style={{ color: '#a855f7', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     to: {target_nickname}
                                 </span>
                             )}
                             <div className="flex flex-row items-center gap-1">
-                                <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     {formatTime(timestamp)}
                                 </span>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                         {read_count}
                                     </span>
                                 )}

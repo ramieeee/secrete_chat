@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, KeyboardEvent, useRef, useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ChatInputProps {
     onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string) => void;
@@ -10,6 +11,7 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname }: ChatInputProps) {
+    const { theme_colors } = useTheme();
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
     const [selected_emoji, setSelectedEmoji] = useState<string>('');
@@ -144,14 +146,20 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
     }, [show_emoji_picker]);
 
     return (
-        <div className="relative border-t border-slate-800 bg-slate-950 p-2 md:p-4">
+        <div className="relative border-t p-2 md:p-4" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
             <div className="flex gap-1 md:gap-2 max-w-4xl mx-auto">
                 <select
                     value={selected_target}
                     onChange={(e) => setSelectedTarget(e.target.value)}
                     disabled={disabled || available_users.length === 0}
-                    className="h-10 px-2 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors text-sm"
-                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+                    className="h-10 px-2 rounded border focus:outline-none disabled:cursor-not-allowed transition-colors text-sm"
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background,
+                        borderColor: theme_colors.info_text,
+                        color: theme_colors.input_text,
+                        fontFamily: 'var(--font-sans)', 
+                        fontWeight: 500 
+                    }}
                 >
                     <option value="">전체</option>
                     {available_users.map((user) => (
@@ -170,8 +178,14 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 />
                 <label
                     htmlFor="image-upload"
-                    className={`h-10 px-2 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors text-sm flex items-center justify-center ${disabled || is_uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+                    className={`h-10 px-2 rounded border cursor-pointer transition-colors text-sm flex items-center justify-center ${disabled || is_uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background,
+                        borderColor: theme_colors.info_text,
+                        color: theme_colors.input_text,
+                        fontFamily: 'var(--font-sans)', 
+                        fontWeight: 500 
+                    }}
                 >
                     📷
                 </label>
@@ -180,19 +194,40 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                         type="button"
                         onClick={() => setShowEmojiPicker(!show_emoji_picker)}
                         disabled={disabled}
-                        className={`h-10 w-10 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-colors text-center disabled:bg-slate-950 disabled:cursor-not-allowed flex items-center justify-center ${selected_emoji ? 'border-slate-600' : ''}`}
-                        style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+                        className={`h-10 w-10 rounded border transition-colors text-center disabled:cursor-not-allowed flex items-center justify-center ${selected_emoji ? '' : ''}`}
+                        style={{ 
+                            backgroundColor: theme_colors.button_input_background,
+                            borderColor: selected_emoji ? theme_colors.input_text : theme_colors.info_text,
+                            color: theme_colors.input_text,
+                            fontFamily: 'var(--font-sans)', 
+                            fontWeight: 500 
+                        }}
                     >
                         {selected_emoji || '😀'}
                     </button>
                     {show_emoji_picker && (
-                        <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-700 rounded-lg p-3 max-h-64 overflow-y-auto shadow-lg z-50 w-64 grid grid-cols-8 gap-1">
+                        <div 
+                            className="absolute bottom-full left-0 mb-2 border rounded-lg p-3 max-h-64 overflow-y-auto shadow-lg z-50 w-64 grid grid-cols-8 gap-1"
+                            style={{ 
+                                backgroundColor: theme_colors.button_input_background,
+                                borderColor: theme_colors.info_text
+                            }}
+                        >
                             {common_emojis.map((emoji, index) => (
                                 <button
                                     key={index}
                                     type="button"
                                     onClick={() => handleEmojiClick(emoji)}
-                                    className="text-xl hover:bg-slate-800 rounded p-1 transition-colors hover:scale-110"
+                                    className="text-xl rounded p-1 transition-colors hover:scale-110"
+                                    style={{ 
+                                        backgroundColor: 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = theme_colors.chat_background;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
                                 >
                                     {emoji}
                                 </button>
@@ -208,22 +243,35 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                     onPaste={handlePaste}
                     placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요... (Ctrl+V로 이미지 붙여넣기)"}
                     disabled={disabled}
-                    className="flex-1 h-10 px-2 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors text-sm"
-                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}
+                    className="flex-1 h-10 px-2 rounded border focus:outline-none disabled:cursor-not-allowed transition-colors text-sm theme-input"
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background,
+                        borderColor: theme_colors.info_text,
+                        color: theme_colors.input_text,
+                        fontFamily: 'var(--font-sans)', 
+                        fontWeight: 400 
+                    }}
                     maxLength={500}
                 />
                 <button
                     onClick={handleSend}
                     disabled={disabled || (!message.trim() && !selected_emoji)}
-                    className="h-10 px-3 bg-slate-800 text-slate-200 rounded hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed transition-colors text-sm"
-                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+                    className="h-10 px-3 rounded disabled:cursor-not-allowed transition-colors text-sm"
+                    style={{ 
+                        backgroundColor: disabled || (!message.trim() && !selected_emoji) ? theme_colors.chat_background : theme_colors.button_input_background,
+                        color: disabled || (!message.trim() && !selected_emoji) ? theme_colors.info_text : theme_colors.input_text,
+                        borderColor: theme_colors.info_text,
+                        border: '1px solid',
+                        fontFamily: 'var(--font-sans)', 
+                        fontWeight: 500 
+                    }}
                 >
                     <span className="hidden md:inline">[SEND]</span>
                     <span className="md:hidden">전송</span>
                 </button>
             </div>
             {is_uploading && (
-                <div className="text-sm text-slate-500 text-center mt-2" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                <div className="text-sm text-center mt-2" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                     이미지 처리 중...
                 </div>
             )}

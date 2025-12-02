@@ -1,9 +1,13 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Do+Hyeon&display=swap');
 
 :root {
   --background: #0a0a0f;
   --foreground: #e0e0e0;
+  --theme-chat-background: #0a0a0f;
+  --theme-input-bar-background: #0f172a;
+  --theme-button-input-background: #1e293b;
+  --theme-input-text: #e2e8f0;
+  --theme-info-text: #64748b;
 }
 
 @theme inline {
@@ -55,4 +59,9 @@ body {
 
 .fade-in-animation {
   animation: fadeIn 0.3s ease-out;
+}
+
+input::placeholder {
+  color: var(--theme-info-text);
+  opacity: 0.7;
 }

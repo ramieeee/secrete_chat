@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Do_Hyeon } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 const doHyeon = Do_Hyeon({
   variable: "--font-do-hyeon",
@@ -29,7 +30,9 @@ export default function RootLayout({
       <body
         className={`${doHyeon.variable} antialiased`}
       >
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
