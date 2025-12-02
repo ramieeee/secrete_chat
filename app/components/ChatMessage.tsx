@@ -51,7 +51,7 @@ export default function ChatMessage({
                         }`}
                         style={{ 
                             color: theme_colors.input_text,
-                            borderColor: isWhisper ? '#DC143C' : 'transparent',
+                            borderColor: isWhisper ? '#f04c4d' : 'transparent',
                             border: isWhisper ? '1px solid' : 'none',
                             fontFamily: 'var(--font-sans)', 
                             fontWeight: 400 
@@ -102,7 +102,7 @@ export default function ChatMessage({
                     {isOwn && (
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                             {isWhisper && target_nickname && (
-                                <span className="text-xs whitespace-nowrap" style={{ color: '#DC143C', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                <span className="text-xs whitespace-nowrap" style={{ color: '#f04c4d', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     to: {target_nickname}
                                 </span>
                             )}
