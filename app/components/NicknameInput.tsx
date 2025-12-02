@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { APP_VERSION } from '../constants';
 
 interface NicknameInputProps {
     onJoin: (nickname: string) => void;
@@ -21,7 +22,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
     return (
         <div className="flex items-center justify-center min-h-screen bg-black relative overflow-hidden">
             <div className="fixed bottom-2 right-2 text-sm text-slate-600" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-                v0.1.1
+                v{APP_VERSION}
             </div>
             <div className="relative bg-slate-950 rounded-lg p-8 w-full max-w-md border border-slate-700">
                 <div className="text-center mb-6">

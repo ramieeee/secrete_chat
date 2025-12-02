@@ -5,6 +5,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SystemMessage from './SystemMessage';
 import UserListChip from './UserListChip';
+import { APP_VERSION } from '../constants';
 
 interface Message {
     type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update';
@@ -667,7 +668,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 current_nickname={nickname}
             />
             <div className="fixed bottom-2 right-2 text-sm text-slate-600" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-                v0.1.1
+                v{APP_VERSION}
             </div>
         </div>
     );
