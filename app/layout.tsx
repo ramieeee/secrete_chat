@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Sans_KR } from "next/font/google";
+import { Do_Hyeon } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const doHyeon = Do_Hyeon({
+  variable: "--font-do-hyeon",
   subsets: ["latin"],
-  display: "swap",
-});
-
-const notoSansKR = Noto_Sans_KR({
-  variable: "--font-noto-sans-kr",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400"],
   display: "swap",
 });
 
@@ -33,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${notoSansKR.variable} antialiased`}
+        className={`${doHyeon.variable} antialiased`}
       >
         {children}
       </body>

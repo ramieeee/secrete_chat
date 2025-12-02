@@ -51,12 +51,12 @@ export default function ChatMessage({
         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
             <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
                 {!isOwn && (
-                    <span className="text-xs text-slate-500 mb-1 px-2 font-mono">
+                    <span className="text-xs text-slate-500 mb-1 px-2 font-mono font-bold">
                         &gt; {nickname}
                     </span>
                 )}
                 {isWhisper && (
-                    <span className="text-xs text-purple-400 mb-1 px-2 font-mono">
+                    <span className="text-xs text-purple-400 mb-1 px-2 font-mono font-bold">
                         {getWhisperLabel()}
                     </span>
                 )}
@@ -70,7 +70,7 @@ export default function ChatMessage({
                                 ? 'bg-slate-900 text-slate-300 border border-purple-600 rounded-tl-none'
                                 : 'bg-slate-900 text-slate-300 border border-slate-700 rounded-tl-none'
                     }`}
-                    style={{ fontFamily: 'var(--font-sans)' }}
+                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}
                 >
                     {image_data && (
                         <div className="mb-2">
@@ -95,14 +95,14 @@ export default function ChatMessage({
                     {emoji && (message || image_data) && (
                         <span className="text-2xl mr-2">{emoji}</span>
                     )}
-                    {message && <p className="text-sm break-words inline leading-relaxed">{message}</p>}
+                    {message && <p className="text-sm break-words inline leading-relaxed" style={{ fontWeight: 400 }}>{message}</p>}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-slate-600 px-2 font-mono">
+                    <span className="text-xs text-slate-600 px-2 font-mono font-bold">
                         {formatTime(timestamp)}
                     </span>
                     {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                        <span className="text-xs text-white px-2 font-mono">
+                        <span className="text-xs text-white px-2 font-mono font-bold">
                             {read_count}
                         </span>
                     )}

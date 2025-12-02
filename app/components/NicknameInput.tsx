@@ -20,16 +20,19 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-black relative overflow-hidden">
+            <div className="fixed bottom-2 right-2 text-[10px] text-slate-600 font-mono" style={{ fontWeight: 400 }}>
+                v0.1.1
+            </div>
             <div className="relative bg-slate-950 rounded-lg p-8 w-full max-w-md border border-slate-700">
                 <div className="text-center mb-6">
-                    <h1 className="text-3xl font-bold text-slate-300 mb-2">
+                    <h1 className="text-3xl font-bold text-slate-300 mb-2" style={{ fontWeight: 700 }}>
                         chat programme
                     </h1>
-                    <p className="text-slate-500 text-sm">닉네임을 입력하고 네트워크에 접속하세요</p>
+                    <p className="text-slate-500 text-sm" style={{ fontWeight: 400 }}>닉네임을 입력하고 네트워크에 접속하세요</p>
                 </div>
                 {errorMessage && (
                     <div className="mb-4 p-3 bg-red-950/30 border-l-4 border-red-600 text-red-400 rounded">
-                        <p className="text-sm font-semibold">{errorMessage}</p>
+                        <p className="text-sm font-semibold" style={{ fontWeight: 700 }}>{errorMessage}</p>
                     </div>
                 )}
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -44,7 +47,8 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                     />
                     <button
                         type="submit"
-                        className="w-full bg-slate-800 text-slate-200 py-3 rounded font-bold hover:bg-slate-700 transition-colors"
+                        className="w-full bg-slate-800 text-slate-200 py-3 rounded hover:bg-slate-700 transition-colors"
+                        style={{ fontWeight: 700 }}
                     >
                         접속하기
                     </button>

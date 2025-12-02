@@ -150,7 +150,8 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                     value={selected_target}
                     onChange={(e) => setSelectedTarget(e.target.value)}
                     disabled={disabled || available_users.length === 0}
-                    className="px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors font-mono text-xs"
+                    className="px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors font-mono text-xs font-bold"
+                    style={{ paddingRight: 'calc(0.5rem - 10px)', paddingLeft: 'calc(0.5rem - 10px)' }}
                 >
                     <option value="">전체</option>
                     {available_users.map((user) => (
@@ -169,7 +170,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 />
                 <label
                     htmlFor="image-upload"
-                    className={`px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors font-mono text-xs flex items-center ${disabled || is_uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer hover:bg-slate-800 transition-colors font-mono text-xs flex items-center font-bold ${disabled || is_uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     📷
                 </label>
@@ -178,7 +179,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                         type="button"
                         onClick={() => setShowEmojiPicker(!show_emoji_picker)}
                         disabled={disabled}
-                        className={`px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-colors font-mono text-center w-10 md:w-12 disabled:bg-slate-950 disabled:cursor-not-allowed ${selected_emoji ? 'border-slate-600' : ''}`}
+                        className={`px-2 py-2 md:px-3 md:py-3 rounded bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-colors font-mono text-center w-10 md:w-12 disabled:bg-slate-950 disabled:cursor-not-allowed font-bold ${selected_emoji ? 'border-slate-600' : ''}`}
                     >
                         {selected_emoji || '😀'}
                     </button>
@@ -206,20 +207,20 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                     placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요... (Ctrl+V로 이미지 붙여넣기)"}
                     disabled={disabled}
                     className="flex-1 px-2 py-2 md:px-4 md:py-3 rounded bg-slate-900 border border-slate-700 focus:border-slate-600 focus:outline-none text-slate-200 placeholder-slate-600 disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors text-sm md:text-base"
-                    style={{ fontFamily: 'var(--font-sans)' }}
+                    style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}
                     maxLength={500}
                 />
                 <button
                     onClick={handleSend}
                     disabled={disabled || (!message.trim() && !selected_emoji)}
-                    className="px-3 py-2 md:px-6 md:py-3 bg-slate-800 text-slate-200 rounded font-bold hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed transition-colors font-mono text-xs md:text-base"
+                    className="px-3 py-2 md:px-6 md:py-3 bg-slate-800 text-slate-200 rounded hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed transition-colors font-mono text-xs md:text-base font-bold"
                 >
                     <span className="hidden md:inline">[SEND]</span>
                     <span className="md:hidden">전송</span>
                 </button>
             </div>
             {is_uploading && (
-                <div className="text-xs text-slate-500 text-center mt-2 font-mono">
+                <div className="text-xs text-slate-500 text-center mt-2 font-mono font-bold">
                     이미지 처리 중...
                 </div>
             )}
