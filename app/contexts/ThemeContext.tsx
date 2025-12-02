@@ -1,30 +1,19 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ThemeColors, generateThemeColors, defaultThemeColors } from '../utils/theme_colors';
+import { ThemeColors, defaultThemeColors } from '../utils/theme_colors';
 
 interface ThemeContextType {
     theme_colors: ThemeColors;
-    selected_color: string;
-    setSelectedColor: (color: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [selected_color, setSelectedColorState] = useState<string>('#000000');
-    const [theme_colors, setThemeColors] = useState<ThemeColors>(defaultThemeColors);
+    const [theme_colors] = useState<ThemeColors>(defaultThemeColors);
 
     useEffect(() => {
-        const saved_color = localStorage.getItem('theme_color');
-        if (saved_color) {
-            setSelectedColorState(saved_color);
-            const saved_theme = generateThemeColors(saved_color);
-            setThemeColors(saved_theme);
-            updateCSSVariables(saved_theme);
-        } else {
-            updateCSSVariables(defaultThemeColors);
-        }
+        updateCSSVariables(defaultThemeColors);
     }, []);
 
     const updateCSSVariables = (colors: ThemeColors) => {
@@ -37,16 +26,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const setSelectedColor = (color: string) => {
-        setSelectedColorState(color);
-        const new_theme = generateThemeColors(color);
-        setThemeColors(new_theme);
-        updateCSSVariables(new_theme);
-        localStorage.setItem('theme_color', color);
-    };
-
     return (
-        <ThemeContext.Provider value={{ theme_colors, selected_color, setSelectedColor }}>
+        <ThemeContext.Provider value={{ theme_colors }}>
             {children}
         </ThemeContext.Provider>
     );

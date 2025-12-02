@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0f;
+  --background: #1a1a1a;
   --foreground: #e0e0e0;
-  --theme-chat-background: #0a0a0f;
-  --theme-input-bar-background: #0f172a;
-  --theme-button-input-background: #1e293b;
-  --theme-input-text: #e2e8f0;
-  --theme-info-text: #64748b;
+  --theme-chat-background: #1a1a1a;
+  --theme-input-bar-background: #252525;
+  --theme-button-input-background: #2a2a2a;
+  --theme-input-text: #e0e0e0;
+  --theme-info-text: #888888;
 }
 
 @theme inline {
@@ -18,7 +18,7 @@
 }
 
 body {
-  background: #000000;
+  background: #1a1a1a;
   color: #e0e0e0;
   font-family: var(--font-sans);
   overflow-x: hidden;
@@ -64,4 +64,109 @@ body {
 input::placeholder {
   color: var(--theme-info-text);
   opacity: 0.7;
+}
+
+/* 메탈 느낌 스타일 */
+.neumorphic {
+  background: linear-gradient(145deg, #1f1f1f, #151515);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.neumorphic-inset {
+  background: linear-gradient(145deg, #151515, #1f1f1f);
+  box-shadow: 
+    inset 6px 6px 12px rgba(0, 0, 0, 0.5),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.03);
+}
+
+.neumorphic-button {
+  background: linear-gradient(145deg, #2d2d2d, #222222);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  border: none;
+  position: relative;
+}
+
+.neumorphic-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.neumorphic-button:hover {
+  box-shadow: 
+    0 3px 10px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.neumorphic-button:hover::before {
+  opacity: 1;
+}
+
+.neumorphic-button:active {
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.03);
+}
+
+.neumorphic-message {
+  background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: none;
+  position: relative;
+}
+
+.neumorphic-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  pointer-events: none;
+}
+
+.neumorphic-input {
+  background: linear-gradient(145deg, #1f1f1f, #1a1a1a);
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.4),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.03),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+  border: none;
+}
+
+@keyframes whisperExpand {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.whisper-expand {
+  animation: whisperExpand 0.2s ease-out;
 }

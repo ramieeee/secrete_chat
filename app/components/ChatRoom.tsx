@@ -5,7 +5,6 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import SystemMessage from './SystemMessage';
 import UserListChip from './UserListChip';
-import ColorPicker from './ColorPicker';
 import { APP_VERSION } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -37,7 +36,6 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const [user_list, setUserList] = useState<string[]>([]);
     const [show_scroll_button, setShowScrollButton] = useState(false);
-    const [show_color_picker, setShowColorPicker] = useState(false);
     const ws_ref = useRef<WebSocket | null>(null);
     const messages_end_ref = useRef<HTMLDivElement>(null);
     const messages_container_ref = useRef<HTMLDivElement>(null);
@@ -554,8 +552,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     };
 
     return (
-        <div className="flex flex-col h-screen relative overflow-hidden" style={{ backgroundColor: theme_colors.chat_background }}>
-            <div className="relative border-b px-2 py-2 md:px-4 md:py-3" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
+        <div className="flex flex-col h-screen relative overflow-hidden neumorphic" style={{ backgroundColor: theme_colors.chat_background }}>
+            <div className="relative border-b px-2 py-2 md:px-4 md:py-3 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
                 <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
                     <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                         <h1 className="text-sm font-bold" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
@@ -566,22 +564,6 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                             {isConnected ? 'ONLINE' : connectionError ? 'ERROR' : 'CONNECTING...'}
                         </span>
                         <UserListChip user_count={user_list.length} user_list={user_list} />
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowColorPicker(!show_color_picker)}
-                                className="px-2 py-1 text-sm rounded border transition-colors md:px-3"
-                                style={{ 
-                                    backgroundColor: theme_colors.button_input_background,
-                                    color: theme_colors.input_text,
-                                    borderColor: theme_colors.info_text,
-                                    fontFamily: 'var(--font-sans)', 
-                                    fontWeight: 500 
-                                }}
-                            >
-                                테마 색상
-                            </button>
-                            <ColorPicker is_open={show_color_picker} onClose={() => setShowColorPicker(false)} />
-                        </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3">
                         <span className="text-sm hidden sm:inline" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
@@ -589,14 +571,14 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         </span>
                         <button
                             onClick={handleDisconnect}
-                            className="px-2 py-1 text-sm text-red-400 hover:text-red-300 rounded border transition-colors md:px-3"
+                            className="neumorphic-button px-3 py-1.5 rounded-full text-xs transition-all"
                             style={{ 
-                                borderColor: theme_colors.info_text,
+                                color: theme_colors.input_text,
                                 fontFamily: 'var(--font-sans)', 
                                 fontWeight: 500 
                             }}
                         >
-                            [EXIT]
+                            EXIT
                         </button>
                     </div>
                 </div>
@@ -609,7 +591,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     <p className="text-sm mt-2 text-red-500/80" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>웹소켓 서버 실행: <code className="px-1 rounded" style={{ backgroundColor: theme_colors.button_input_background }}>npm run ws</code></p>
                 </div>
             )}
-            <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 relative">
+            <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 pb-24 relative">
                 {show_scroll_button && (
                     <button
                         onClick={scrollToBottom}
@@ -697,7 +679,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 user_list={user_list}
                 current_nickname={nickname}
             />
-            <div className="fixed bottom-2 right-2 text-sm" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+            <div className="fixed bottom-2 right-2 text-sm z-40" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v{APP_VERSION}
             </div>
         </div>

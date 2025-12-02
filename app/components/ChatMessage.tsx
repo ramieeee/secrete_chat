@@ -46,14 +46,13 @@ export default function ChatMessage({
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
                 <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
-                        className={`px-2 py-1 rounded-lg ${
+                        className={`neumorphic-message px-4 py-2 rounded-3xl ${
                             isOwn ? 'rounded-tr-none' : 'rounded-tl-none'
                         }`}
                         style={{ 
-                            backgroundColor: theme_colors.button_input_background,
                             color: theme_colors.input_text,
-                            borderColor: isWhisper ? '#9333ea' : theme_colors.info_text,
-                            border: '1px solid',
+                            borderColor: isWhisper ? '#DC143C' : 'transparent',
+                            border: isWhisper ? '1px solid' : 'none',
                             fontFamily: 'var(--font-sans)', 
                             fontWeight: 400 
                         }}
@@ -103,7 +102,7 @@ export default function ChatMessage({
                     {isOwn && (
                         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                             {isWhisper && target_nickname && (
-                                <span className="text-xs whitespace-nowrap" style={{ color: '#a855f7', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                <span className="text-xs whitespace-nowrap" style={{ color: '#DC143C', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     to: {target_nickname}
                                 </span>
                             )}
