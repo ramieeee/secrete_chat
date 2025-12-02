@@ -35,7 +35,8 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
         <div ref={container_ref} className="relative z-50">
             <button
                 onClick={toggle_expand}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono hover:bg-slate-800 transition-colors font-bold"
+                className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-300 font-mono hover:bg-slate-800 transition-colors"
+                style={{ fontWeight: 500 }}
             >
                 {user_count}명
             </button>
@@ -43,14 +44,15 @@ export default function UserListChip({ user_count, user_list }: UserListChipProp
             {is_expanded && (
                 <div className="absolute top-10 left-0 bg-slate-900 border border-slate-700 rounded-lg p-4 min-w-[200px] shadow-lg expand-animation">
                     <div className="mb-3 pb-2 border-b border-slate-700">
-                        <h3 className="text-sm font-bold text-slate-300 font-mono" style={{ fontWeight: 700 }}>접속 중인 사용자</h3>
-                        <p className="text-xs text-slate-500 mt-1" style={{ fontWeight: 400 }}>총 {user_count}명</p>
+                        <h3 className="text-sm text-slate-300 font-mono" style={{ fontWeight: 500 }}>접속 중인 사용자</h3>
+                        <p className="text-sm text-slate-500 mt-1" style={{ fontWeight: 400 }}>총 {user_count}명</p>
                     </div>
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {user_list.map((user, index) => (
                             <div
                                 key={index}
-                                className="text-sm text-slate-300 font-mono py-1 px-2 rounded bg-slate-800/50 border border-slate-700/50 fade-in-animation font-bold"
+                                className="text-sm text-slate-300 font-mono py-1 px-2 rounded bg-slate-800/50 border border-slate-700/50 fade-in-animation"
+                                style={{ fontWeight: 500 }}
                                 style={{
                                     animationDelay: `${index * 0.05}s`,
                                     animationFillMode: 'both',
