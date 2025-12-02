@@ -553,23 +553,23 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             <div className="relative bg-slate-950 border-b border-slate-800 px-2 py-2 md:px-4 md:py-3">
                 <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
                     <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                        <h1 className="text-sm text-slate-300" style={{ fontWeight: 500 }}>
+                        <h1 className="text-sm text-slate-300" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                             chat programme
                         </h1>
                         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm text-slate-500 font-mono" style={{ fontWeight: 500 }}>
+                        <span className="text-sm text-slate-500" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                             {isConnected ? '[ONLINE]' : connectionError ? '[ERROR]' : '[CONNECTING...]'}
                         </span>
                         <UserListChip user_count={user_list.length} user_list={user_list} />
                     </div>
                     <div className="flex items-center gap-2 md:gap-3">
-                        <span className="text-sm text-slate-400 font-mono hidden sm:inline" style={{ fontWeight: 500 }}>
+                        <span className="text-sm text-slate-400 hidden sm:inline" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                             &gt; {nickname}
                         </span>
                         <button
                             onClick={handleDisconnect}
                             className="px-2 py-1 text-sm text-red-400 hover:text-red-300 hover:bg-slate-900 rounded border border-slate-700 transition-colors md:px-3"
-                            style={{ fontWeight: 500 }}
+                            style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
                         >
                             [EXIT]
                         </button>
@@ -579,9 +579,9 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
 
             {connectionError && (
                 <div className="relative bg-red-950/30 border-l-4 border-red-600 text-red-400 p-4 mx-4 mt-4 rounded">
-                    <p className="text-sm font-mono" style={{ fontWeight: 500 }}>[ERROR]</p>
-                    <p className="text-sm" style={{ fontWeight: 400 }}>{connectionError}</p>
-                    <p className="text-sm mt-2 text-red-500/80 font-mono" style={{ fontWeight: 500 }}>웹소켓 서버 실행: <code className="bg-slate-900 px-1 rounded">npm run ws</code></p>
+                    <p className="text-sm" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>[ERROR]</p>
+                    <p className="text-sm" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>{connectionError}</p>
+                    <p className="text-sm mt-2 text-red-500/80" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>웹소켓 서버 실행: <code className="bg-slate-900 px-1 rounded">npm run ws</code></p>
                 </div>
             )}
             <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 relative">
@@ -589,7 +589,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     <button
                         onClick={scrollToBottom}
                         className="fixed bottom-24 right-[calc(1rem+10px)] md:right-[calc(2rem+10px)] bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full p-2 shadow-lg border border-slate-700 transition-all hover:scale-110 z-40"
-                        style={{ fontWeight: 500 }}
+                        style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}
                         title="밑으로"
                     >
                         <div className="flex flex-col items-center">
@@ -666,7 +666,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 user_list={user_list}
                 current_nickname={nickname}
             />
-            <div className="fixed bottom-2 right-2 text-sm text-slate-600 font-mono" style={{ fontWeight: 400 }}>
+            <div className="fixed bottom-2 right-2 text-sm text-slate-600" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v0.1.1
             </div>
         </div>

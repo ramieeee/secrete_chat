@@ -8,7 +8,7 @@ export default function SystemMessage({ message }: SystemMessageProps) {
     return (
         <div className="flex justify-center mb-4">
             <div className="bg-slate-900 border border-slate-700 rounded-full px-4 py-2">
-                <p className="text-sm text-slate-500 text-center font-mono" style={{ fontWeight: 500 }}>{message}</p>
+                <p className="text-sm text-slate-500 text-center" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{message}</p>
             </div>
         </div>
     );

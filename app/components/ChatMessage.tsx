@@ -49,18 +49,13 @@ export default function ChatMessage({
 
     return (
         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
-            <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
-                {!isOwn && (
-                    <span className="text-sm text-slate-500 mb-1 px-2 font-mono" style={{ fontWeight: 500 }}>
-                        &gt; {nickname}
-                    </span>
-                )}
+            <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
                 {isWhisper && (
-                    <span className="text-sm text-purple-400 mb-1 px-2 font-mono" style={{ fontWeight: 500 }}>
+                    <span className="text-sm text-purple-400 mb-1 px-2" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                         {getWhisperLabel()}
                     </span>
                 )}
-                <div className={`flex items-center gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-start gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
                         className={`px-2 py-1 rounded-lg ${
                             isOwn
@@ -96,18 +91,37 @@ export default function ChatMessage({
                         {emoji && (message || image_data) && (
                             <span className="text-xl mr-1">{emoji}</span>
                         )}
-                        {message && <p className="text-xs break-words inline leading-relaxed" style={{ fontWeight: 400 }}>{message}</p>}
+                        {message && <p className="text-xs break-words inline leading-relaxed" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>{message}</p>}
                     </div>
-                    <div className="flex items-center gap-1">
-                        <span className="text-sm text-slate-600 font-mono" style={{ fontWeight: 500 }}>
-                            {formatTime(timestamp)}
-                        </span>
-                        {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                            <span className="text-sm text-white font-mono" style={{ fontWeight: 500 }}>
-                                {read_count}
+                    {!isOwn && (
+                        <div className="flex flex-col items-start gap-0.5 flex-shrink-0">
+                            <span className="text-xs text-slate-500 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                &gt; {nickname}
                             </span>
-                        )}
-                    </div>
+                            <div className="flex flex-row items-center gap-1">
+                                <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    {formatTime(timestamp)}
+                                </span>
+                                {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
+                                    <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                        {read_count}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    {isOwn && (
+                        <div className="flex flex-row items-center gap-1 flex-shrink-0">
+                            <span className="text-xs text-slate-600 whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                {formatTime(timestamp)}
+                            </span>
+                            {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
+                                <span className="text-xs text-white whitespace-nowrap" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    {read_count}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
