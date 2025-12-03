@@ -131,9 +131,9 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             return;
         }
 
-        const max_size = 10 * 1024 * 1024;
+        const max_size = 100 * 1024 * 1024;
         if (file.size > max_size) {
-            alert('파일 크기는 10MB 이하여야 합니다.');
+            alert('파일 크기는 100MB 이하여야 합니다.');
             return;
         }
 

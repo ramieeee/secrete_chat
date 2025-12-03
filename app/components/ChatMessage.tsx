@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '../contexts/ThemeContext';
+import { useMemo } from 'react';
 
 interface ChatMessageProps {
     nickname: string;
@@ -41,11 +42,94 @@ export default function ChatMessage({
 }: ChatMessageProps) {
     const { theme_colors } = useTheme();
     
+    // 사용자별 색상 생성 (어두운 색감, 배경과 구분)
+    const user_color = useMemo(() => {
+        let hash = 0;
+        for (let i = 0; i < nickname.length; i++) {
+            hash = nickname.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        // HSL 색상 생성 (어두운 색감)
+        const hue = hash % 360;
+        const saturation = 40 + (hash % 20); // 40-60%
+        const lightness = 45 + (hash % 15); // 45-60% (어두운 색감)
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }, [nickname]);
+    
+    // URL 감지 및 링크 변환
+    const url_pattern = /(https?:\/\/[^\s]+)/g;
+    const is_long_text = message.length > 200;
+    const has_newlines = message.includes('\n');
+    
     const formatTime = (timestamp: number) => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString('ko-KR', { 
             hour: '2-digit', 
             minute: '2-digit' 
+        });
+    };
+    
+    const openFullTextPopup = () => {
+        const new_window = window.open('', '_blank', 'width=800,height=600');
+        if (new_window) {
+            new_window.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>전체 텍스트</title>
+                    <style>
+                        body {
+                            margin: 0;
+                            padding: 20px;
+                            background: ${theme_colors.chat_background};
+                            color: ${theme_colors.input_text};
+                            font-family: var(--font-sans), sans-serif;
+                            white-space: pre-wrap;
+                            word-wrap: break-word;
+                            overflow-wrap: break-word;
+                        }
+                        pre {
+                            margin: 0;
+                            font-family: inherit;
+                            white-space: pre-wrap;
+                            word-wrap: break-word;
+                            overflow-wrap: break-word;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                </body>
+                </html>
+            `);
+            new_window.document.close();
+        }
+    };
+    
+    const renderMessageWithLinks = (text: string) => {
+        if (!text) return null;
+        
+        const parts = text.split(url_pattern);
+        return parts.map((part, index) => {
+            // 새로운 정규식으로 매번 테스트 (global 플래그 문제 방지)
+            const is_url = /^https?:\/\/[^\s]+$/.test(part);
+            if (is_url) {
+                const display_text = part.length > 50 ? `${part.substring(0, 50)}...` : part;
+                return (
+                    <a
+                        key={index}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:opacity-80 transition-opacity break-all"
+                        style={{ color: user_color, maxWidth: 'min(85vw, 600px)', display: 'inline-block', wordBreak: 'break-all' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {display_text}
+                    </a>
+                );
+            }
+            return <span key={index}>{part}</span>;
         });
     };
 
@@ -160,11 +244,46 @@ export default function ChatMessage({
                         {emoji && (message || image_data) && (
                             <span className="text-xl mr-1">{emoji}</span>
                         )}
-                        {message && <p className="text-xs break-words inline leading-relaxed" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>{message}</p>}
+                        {message && (
+                            <div className="text-xs leading-relaxed" style={{ 
+                                fontFamily: 'var(--font-sans)', 
+                                fontWeight: 400,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                maxWidth: 'min(85vw, 600px)'
+                            }}>
+                                {is_long_text || has_newlines ? (
+                                    <div>
+                                        <div style={{ 
+                                            maxWidth: '100%',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 5,
+                                            WebkitBoxOrient: 'vertical'
+                                        }}>
+                                            {renderMessageWithLinks(message)}
+                                        </div>
+                                        <button
+                                            onClick={openFullTextPopup}
+                                            className="mt-1 text-xs underline hover:opacity-80 transition-opacity"
+                                            style={{ color: theme_colors.info_text }}
+                                        >
+                                            전체 텍스트 보기
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ maxWidth: 'min(85vw, 600px)', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                                        {renderMessageWithLinks(message)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     {!isOwn && (
                         <div className="flex flex-col items-start gap-0.5 flex-shrink-0">
-                            <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            <span className="text-xs whitespace-nowrap" style={{ color: user_color, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                 &gt; {nickname}
                             </span>
                             <div className="flex flex-row items-center gap-1">
@@ -172,7 +291,7 @@ export default function ChatMessage({
                                     {formatTime(timestamp)}
                                 </span>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500, minWidth: '20px', textAlign: 'right' }}>
                                         {read_count}
                                     </span>
                                 )}
@@ -191,7 +310,7 @@ export default function ChatMessage({
                                     {formatTime(timestamp)}
                                 </span>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500, minWidth: '20px', textAlign: 'right' }}>
                                         {read_count}
                                     </span>
                                 )}

@@ -159,7 +159,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                 const scroll_top = container.scrollTop;
                                 const client_height = container.clientHeight;
                                 const distance_from_bottom = scroll_height - scroll_top - client_height;
-                                was_at_bottom_ref.current = distance_from_bottom <= 400;
+                                was_at_bottom_ref.current = distance_from_bottom <= 600;
                             }
                             
                             const new_message = {
@@ -327,68 +327,6 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         const container = messages_container_ref.current;
         if (!container || messages.length === 0) return;
 
-        const last_message = messages[messages.length - 1];
-        const is_my_message = last_message && (
-            (last_message.type === 'message' && last_message.nickname === nickname) ||
-            (last_message.type === 'whisper' && last_message.nickname === nickname)
-        );
-
-        const smooth_scroll_to_bottom = (target_scroll: number) => {
-            if (!container) return;
-            
-            const start_scroll = container.scrollTop;
-            const distance = target_scroll - start_scroll;
-            const duration = Math.min(300, Math.abs(distance) * 0.5); // 최대 300ms, 거리에 비례
-            const start_time = performance.now();
-
-            const animate = (current_time: number) => {
-                const elapsed = current_time - start_time;
-                const progress = Math.min(elapsed / duration, 1);
-                
-                // Ease-out cubic 함수 사용 (부드러운 감속)
-                const ease_out_cubic = 1 - Math.pow(1 - progress, 3);
-                const current_scroll = start_scroll + distance * ease_out_cubic;
-                
-                container.scrollTop = current_scroll;
-
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                }
-            };
-
-            requestAnimationFrame(animate);
-        };
-
-        const check_and_scroll = () => {
-            if (!container) return;
-            
-            const scroll_height = container.scrollHeight;
-            const client_height = container.clientHeight;
-            const target_scroll = scroll_height - client_height;
-            
-            if (is_my_message) {
-                // 내 메시지일 때는 부드럽게 스크롤
-                smooth_scroll_to_bottom(target_scroll);
-                was_at_bottom_ref.current = true;
-            } else {
-                const scroll_top = container.scrollTop;
-                const distance_from_bottom = scroll_height - scroll_top - client_height;
-                
-                // 이미 하단에 가까이 있으면 부드럽게 스크롤, 아니면 스크롤하지 않음
-                if (was_at_bottom_ref.current || distance_from_bottom < 150) {
-                    smooth_scroll_to_bottom(target_scroll);
-                    was_at_bottom_ref.current = true;
-                }
-            }
-        };
-
-        // 약간의 지연을 두어 DOM이 완전히 렌더링된 후 스크롤
-        const timeout_id = setTimeout(() => {
-            requestAnimationFrame(() => {
-                check_and_scroll();
-            });
-        }, 50);
-
         const check_scroll_position = () => {
             if (!container) return;
             const scroll_top = container.scrollTop;
@@ -421,7 +359,6 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             if (container) {
                 container.removeEventListener('scroll', check_scroll_position);
             }
-            clearTimeout(timeout_id);
         };
     }, [messages, nickname]);
 
