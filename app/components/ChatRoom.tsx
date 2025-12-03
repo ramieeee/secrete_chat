@@ -159,7 +159,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                 const scroll_top = container.scrollTop;
                                 const client_height = container.clientHeight;
                                 const distance_from_bottom = scroll_height - scroll_top - client_height;
-                                was_at_bottom_ref.current = distance_from_bottom <= 600;
+                                was_at_bottom_ref.current = distance_from_bottom <= 200;
                             }
                             
                             const new_message = {
@@ -327,6 +327,46 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         const container = messages_container_ref.current;
         if (!container || messages.length === 0) return;
 
+        const smooth_scroll_to_bottom = (target_scroll: number) => {
+            if (!container) return;
+            
+            const start_scroll = container.scrollTop;
+            const distance = target_scroll - start_scroll;
+            const duration = Math.min(300, Math.abs(distance) * 0.5);
+            const start_time = performance.now();
+
+            const animate = (current_time: number) => {
+                const elapsed = current_time - start_time;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease_out_cubic = 1 - Math.pow(1 - progress, 3);
+                const current_scroll = start_scroll + distance * ease_out_cubic;
+                
+                container.scrollTop = current_scroll;
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            };
+
+            requestAnimationFrame(animate);
+        };
+
+        const check_and_scroll = () => {
+            if (!container) return;
+            
+            // 실제 현재 스크롤 위치를 확인
+            const scroll_height = container.scrollHeight;
+            const scroll_top = container.scrollTop;
+            const client_height = container.clientHeight;
+            const distance_from_bottom = scroll_height - scroll_top - client_height;
+            
+            // 162번 라인과 동일한 조건 (distance_from_bottom <= 200)일 때만 스크롤
+            if (distance_from_bottom <= 200) {
+                const target_scroll = scroll_height - client_height;
+                smooth_scroll_to_bottom(target_scroll);
+            }
+        };
+
         const check_scroll_position = () => {
             if (!container) return;
             const scroll_top = container.scrollTop;
@@ -334,8 +374,9 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             const client_height = container.clientHeight;
             const distance_from_bottom = scroll_height - scroll_top - client_height;
             const is_near_bottom = distance_from_bottom < 100;
+            // 162번 라인과 동일한 조건으로 was_at_bottom_ref 업데이트
+            was_at_bottom_ref.current = distance_from_bottom <= 200;
             setShowScrollButton(!is_near_bottom && messages.length > 0);
-            was_at_bottom_ref.current = is_near_bottom;
             
             if (is_near_bottom && !document.hidden && title_blink_interval_ref.current) {
                 clearInterval(title_blink_interval_ref.current);
@@ -351,6 +392,13 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             }
         };
 
+        // 바닥에 있을 때 새 메시지가 오면 스크롤
+        const timeout_id = setTimeout(() => {
+            requestAnimationFrame(() => {
+                check_and_scroll();
+            });
+        }, 50);
+
         requestAnimationFrame(() => {
             setTimeout(setup_scroll_listener, 50);
         });
@@ -359,6 +407,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             if (container) {
                 container.removeEventListener('scroll', check_scroll_position);
             }
+            clearTimeout(timeout_id);
         };
     }, [messages, nickname]);
 
