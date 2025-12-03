@@ -10,6 +10,10 @@ interface ChatMessage {
     target_nickname?: string;
     image_data?: string;
     emoji?: string;
+    file_data?: string;
+    file_name?: string;
+    file_size?: number;
+    file_type?: string;
     message_id?: string;
     read_count?: number;
     total_users?: number;
@@ -104,11 +108,20 @@ wss.on('connection', (ws: WebSocket) => {
                     message: parsed_data.message,
                     image_data: parsed_data.image_data,
                     emoji: parsed_data.emoji,
+                    file_data: parsed_data.file_data,
+                    file_name: parsed_data.file_name,
+                    file_size: parsed_data.file_size,
+                    file_type: parsed_data.file_type,
                     timestamp: Date.now(),
                     message_id: message_id,
                     read_count: unread_count,
                     total_users: total_users
                 };
+                
+                if (parsed_data.file_data) {
+                    const file_data_size = parsed_data.file_data.length;
+                    console.log(`[서버] 파일 메시지 수신: ${parsed_data.file_name} (${parsed_data.file_size} bytes, base64: ${file_data_size} bytes)`);
+                }
                 
                 message_readers.set(message_id, new Set());
                 broadcast(chat_message);
@@ -154,7 +167,7 @@ wss.on('connection', (ws: WebSocket) => {
                 const target_nickname = parsed_data.target_nickname;
                 const whisper_message = parsed_data.message;
                 
-                if (!target_nickname || (!whisper_message && !parsed_data.image_data && !parsed_data.emoji)) {
+                if (!target_nickname || (!whisper_message && !parsed_data.image_data && !parsed_data.emoji && !parsed_data.file_data)) {
                     return;
                 }
                 
@@ -165,11 +178,20 @@ wss.on('connection', (ws: WebSocket) => {
                     message: whisper_message,
                     image_data: parsed_data.image_data,
                     emoji: parsed_data.emoji,
+                    file_data: parsed_data.file_data,
+                    file_name: parsed_data.file_name,
+                    file_size: parsed_data.file_size,
+                    file_type: parsed_data.file_type,
                     timestamp: Date.now()
                 };
                 
+                if (parsed_data.file_data) {
+                    const file_data_size = parsed_data.file_data.length;
+                    console.log(`[서버] 귓속말 파일 수신: ${parsed_data.file_name} (${parsed_data.file_size} bytes, base64: ${file_data_size} bytes)`);
+                }
+                
                 sendWhisper(whisper, ws);
-                console.log(`${sender_nickname} -> ${target_nickname}: ${whisper_message || parsed_data.emoji || '[이미지]'}`);
+                console.log(`${sender_nickname} -> ${target_nickname}: ${whisper_message || parsed_data.emoji || parsed_data.file_name || '[이미지]'}`);
             }
         } catch (error) {
             console.error('메시지 파싱 오류:', error);

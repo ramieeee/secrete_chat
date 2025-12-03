@@ -12,6 +12,10 @@ interface ChatMessageProps {
     current_nickname?: string;
     image_data?: string;
     emoji?: string;
+    file_data?: string;
+    file_name?: string;
+    file_size?: number;
+    file_type?: string;
     message_id?: string;
     read_count?: number;
     total_users?: number;
@@ -27,6 +31,10 @@ export default function ChatMessage({
     current_nickname,
     image_data,
     emoji,
+    file_data,
+    file_name,
+    file_size,
+    file_type,
     message_id,
     read_count,
     total_users
@@ -39,6 +47,40 @@ export default function ChatMessage({
             hour: '2-digit', 
             minute: '2-digit' 
         });
+    };
+
+    const formatFileSize = (bytes?: number) => {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const handleFileDownload = () => {
+        if (!file_data || !file_name) return;
+        
+        try {
+            const byte_string = atob(file_data.split(',')[1]);
+            const byte_array = new Uint8Array(byte_string.length);
+            for (let i = 0; i < byte_string.length; i++) {
+                byte_array[i] = byte_string.charCodeAt(i);
+            }
+            const blob = new Blob([byte_array], { type: file_type || 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file_name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 100);
+        } catch (error) {
+            console.error('파일 다운로드 오류:', error);
+            alert('파일 다운로드에 실패했습니다.');
+        }
     };
 
     return (
@@ -70,6 +112,44 @@ export default function ChatMessage({
                                         }
                                     }}
                                 />
+                            </div>
+                        )}
+                        {file_data && file_name && (
+                            <div className="mb-1">
+                                <button
+                                    onClick={handleFileDownload}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all hover:opacity-80 w-full text-left"
+                                    style={{
+                                        backgroundColor: theme_colors.button_input_background,
+                                        borderColor: theme_colors.info_text,
+                                        color: theme_colors.input_text
+                                    }}
+                                >
+                                    <svg 
+                                        width="16" 
+                                        height="16" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                    >
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium truncate" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                                            {file_name}
+                                        </div>
+                                        {file_size && (
+                                            <div className="text-xs opacity-70" style={{ fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+                                                {formatFileSize(file_size)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
                             </div>
                         )}
                         {emoji && !message && !image_data && (

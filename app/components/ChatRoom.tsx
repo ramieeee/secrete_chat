@@ -18,6 +18,10 @@ interface Message {
     target_nickname?: string;
     image_data?: string;
     emoji?: string;
+    file_data?: string;
+    file_name?: string;
+    file_size?: number;
+    file_type?: string;
     message_id?: string;
     read_count?: number;
     total_users?: number;
@@ -36,6 +40,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const [user_list, setUserList] = useState<string[]>([]);
     const [show_scroll_button, setShowScrollButton] = useState(false);
+    const [is_drag_over, setIsDragOver] = useState(false);
+    const [drag_counter, setDragCounter] = useState(0);
     const ws_ref = useRef<WebSocket | null>(null);
     const messages_end_ref = useRef<HTMLDivElement>(null);
     const messages_container_ref = useRef<HTMLDivElement>(null);
@@ -100,6 +106,17 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 ws.onmessage = (event) => {
                     try {
                         const message: Message = JSON.parse(event.data);
+                        
+                        if (message.type === 'message' || message.type === 'whisper') {
+                            console.log('[수신] 메시지 타입:', message.type, '닉네임:', message.nickname);
+                            if (message.file_data) {
+                                console.log('[수신] 파일 데이터 포함:', message.file_name, message.file_size, 'bytes');
+                            }
+                            if (message.image_data) {
+                                console.log('[수신] 이미지 데이터 포함');
+                            }
+                        }
+                        
                         if (message.type === 'join_rejected') {
                             console.log('입장 거부:', message.reason);
                             if (is_mounted && ws) {
@@ -149,6 +166,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                 ...message,
                                 message_id: message.message_id || `${message.type}-${message.timestamp}-${message.nickname}-${Date.now()}`
                             };
+                            
+                            console.log('[수신] 메시지 추가:', new_message.type, new_message.nickname, new_message.file_data ? '파일 포함' : '', new_message.image_data ? '이미지 포함' : '');
                             
                             setMessages((prev) => {
                                 const updated = [...prev, new_message];
@@ -432,7 +451,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 if ('Notification' in window && Notification.permission === 'granted') {
                     const message_preview = last_message.message 
                         ? (last_message.message.length > 50 ? last_message.message.substring(0, 50) + '...' : last_message.message)
-                        : (last_message.image_data ? '이미지' : last_message.emoji || '메시지');
+                        : (last_message.image_data ? '이미지' : last_message.file_data ? '파일' : last_message.emoji || '메시지');
                     
                     new Notification('새 메시지', {
                         body: `${last_message.nickname}: ${message_preview}`,
@@ -445,7 +464,7 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                         if (permission === 'granted' && last_message) {
                             const message_preview = last_message.message 
                                 ? (last_message.message.length > 50 ? last_message.message.substring(0, 50) + '...' : last_message.message)
-                                : (last_message.image_data ? '이미지' : last_message.emoji || '메시지');
+                                : (last_message.image_data ? '이미지' : last_message.file_data ? '파일' : last_message.emoji || '메시지');
                             
                             new Notification('새 메시지', {
                                 body: `${last_message.nickname}: ${message_preview}`,
@@ -522,6 +541,9 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                             if (msg.image_data) {
                                 msg.image_data = undefined;
                             }
+                            if (msg.file_data) {
+                                msg.file_data = undefined;
+                            }
                             return false;
                         }
                     }
@@ -537,29 +559,45 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         return () => clearInterval(interval);
     }, []);
 
-    const handleSendMessage = (message: string, target_nickname?: string, image_data?: string, emoji?: string) => {
+    const handleSendMessage = (message: string, target_nickname?: string, image_data?: string, emoji?: string, file_data?: string, file_name?: string, file_size?: number, file_type?: string) => {
         if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN && isJoined) {
             try {
-                if (target_nickname) {
-                    ws_ref.current.send(JSON.stringify({
-                        type: 'whisper',
-                        message: message,
-                        target_nickname: target_nickname,
-                        image_data: image_data,
-                        emoji: emoji
-                    }));
-                    console.log('귓속말 전송:', message, '->', target_nickname, image_data ? '(이미지 포함)' : '', emoji ? '(이모티콘 포함)' : '');
-                } else {
-                    ws_ref.current.send(JSON.stringify({
-                        type: 'message',
-                        message: message,
-                        image_data: image_data,
-                        emoji: emoji
-                    }));
-                    console.log('메시지 전송:', message, image_data ? '(이미지 포함)' : '', emoji ? '(이모티콘 포함)' : '');
+                const message_data = target_nickname ? {
+                    type: 'whisper',
+                    message: message,
+                    target_nickname: target_nickname,
+                    image_data: image_data,
+                    emoji: emoji,
+                    file_data: file_data,
+                    file_name: file_name,
+                    file_size: file_size,
+                    file_type: file_type
+                } : {
+                    type: 'message',
+                    message: message,
+                    image_data: image_data,
+                    emoji: emoji,
+                    file_data: file_data,
+                    file_name: file_name,
+                    file_size: file_size,
+                    file_type: file_type
+                };
+
+                const message_string = JSON.stringify(message_data);
+                const message_size = new Blob([message_string]).size;
+                console.log('전송 메시지 크기:', message_size, 'bytes', `(${(message_size / 1024 / 1024).toFixed(2)} MB)`);
+                
+                if (message_size > 16 * 1024 * 1024) {
+                    console.warn('메시지 크기가 너무 큼 (16MB 초과)');
+                    alert('파일이 너무 큽니다. 더 작은 파일을 선택해주세요.');
+                    return;
                 }
+
+                ws_ref.current.send(message_string);
+                console.log('메시지 전송 완료:', target_nickname ? `귓속말 -> ${target_nickname}` : '일반 메시지', image_data ? '(이미지 포함)' : '', file_data ? `(파일 포함: ${file_name}, ${file_size} bytes)` : '', emoji ? '(이모티콘 포함)' : '');
             } catch (error) {
                 console.error('메시지 전송 실패:', error);
+                alert('메시지 전송에 실패했습니다: ' + (error instanceof Error ? error.message : String(error)));
                 setConnectionError('메시지 전송에 실패했습니다.');
             }
         } else {
@@ -608,8 +646,118 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
         requestAnimationFrame(animate);
     };
 
+    const processFile = async (file: File) => {
+        console.log('파일 처리 시작:', file.name, file.size, file.type);
+        
+        if (!isConnected || !isJoined) {
+            console.error('연결되지 않음:', { isConnected, isJoined });
+            alert('연결되지 않았습니다.');
+            return;
+        }
+
+        const max_size = file.type.startsWith('image/') ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+        if (file.size > max_size) {
+            alert(file.type.startsWith('image/') ? '이미지 크기는 5MB 이하여야 합니다.' : '파일 크기는 10MB 이하여야 합니다.');
+            return;
+        }
+
+        try {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const result = e.target?.result as string;
+                console.log('파일 읽기 완료, 데이터 크기:', result.length);
+                
+                if (file.type.startsWith('image/')) {
+                    console.log('이미지 전송 시작');
+                    handleSendMessage('', undefined, result);
+                } else {
+                    console.log('파일 전송 시작:', file.name, file.size);
+                    handleSendMessage('', undefined, undefined, undefined, result, file.name, file.size, file.type);
+                }
+            };
+
+            reader.onerror = (error) => {
+                console.error('파일 읽기 오류:', error);
+                alert('파일을 읽는데 실패했습니다.');
+            };
+
+            reader.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    console.log(`파일 읽기 진행: ${percent.toFixed(1)}%`);
+                }
+            };
+
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('파일 처리 오류:', error);
+            alert('파일 처리에 실패했습니다.');
+        }
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragCounter(prev => prev + 1);
+        if (e.dataTransfer.types.includes('Files')) {
+            setIsDragOver(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragCounter(prev => {
+            const new_count = prev - 1;
+            if (new_count === 0) {
+                setIsDragOver(false);
+            }
+            return new_count;
+        });
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.types.includes('Files')) {
+            e.dataTransfer.dropEffect = 'copy';
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        setDragCounter(0);
+
+        console.log('파일 드롭 이벤트:', { isConnected, isJoined, filesCount: e.dataTransfer.files.length });
+
+        if (!isConnected || !isJoined) {
+            console.error('드롭 실패: 연결되지 않음');
+            alert('연결되지 않았습니다.');
+            return;
+        }
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            const file = files[0];
+            console.log('드롭된 파일:', file.name, file.size, file.type);
+            processFile(file);
+        } else {
+            console.warn('드롭된 파일이 없음');
+        }
+    };
+
     return (
-        <div className="flex flex-col h-screen relative overflow-hidden neumorphic" style={{ backgroundColor: theme_colors.chat_background }}>
+        <div 
+            className="flex flex-col h-screen relative overflow-hidden neumorphic" 
+            style={{ backgroundColor: theme_colors.chat_background }}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
             <div className="relative border-b px-2 py-2 md:px-4 md:py-3 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
                 <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
                     <div className="flex items-center gap-2 md:gap-3 flex-wrap">
@@ -648,6 +796,68 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                     <p className="text-sm mt-2 text-red-500/80" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>웹소켓 서버 실행: <code className="px-1 rounded" style={{ backgroundColor: theme_colors.button_input_background }}>npm run ws</code></p>
                 </div>
             )}
+            <div 
+                className="fixed inset-0 z-50 flex items-center justify-center transition-all duration-300 ease-out"
+                style={{
+                    backgroundColor: is_drag_over ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0)',
+                    backdropFilter: is_drag_over ? 'blur(4px)' : 'blur(0px)',
+                    opacity: is_drag_over ? 1 : 0,
+                    pointerEvents: is_drag_over ? 'auto' : 'none',
+                    visibility: is_drag_over ? 'visible' : 'hidden'
+                }}
+            >
+                <div 
+                    className="neumorphic rounded-3xl p-8 md:p-12 flex flex-col items-center gap-4 transform transition-all duration-300"
+                    style={{
+                        backgroundColor: theme_colors.button_input_background,
+                        border: `2px dashed ${theme_colors.info_text}`,
+                        transform: is_drag_over ? 'scale(1)' : 'scale(0.9)',
+                        animation: is_drag_over ? 'pulse-scale 1.5s ease-in-out infinite' : 'none'
+                    }}
+                >
+                    <svg 
+                        width="64" 
+                        height="64" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                        className="transition-transform duration-300"
+                        style={{ 
+                            color: theme_colors.input_text,
+                            transform: is_drag_over ? 'translateY(0)' : 'translateY(-10px)'
+                        }}
+                    >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p 
+                        className="text-xl md:text-2xl font-bold transition-opacity duration-300"
+                        style={{ 
+                            color: theme_colors.input_text, 
+                            fontFamily: 'var(--font-sans)', 
+                            fontWeight: 600,
+                            opacity: is_drag_over ? 1 : 0
+                        }}
+                    >
+                        파일을 드랍해주세요
+                    </p>
+                    <p 
+                        className="text-sm md:text-base transition-opacity duration-300"
+                        style={{ 
+                            color: theme_colors.info_text, 
+                            fontFamily: 'var(--font-sans)', 
+                            fontWeight: 400,
+                            opacity: is_drag_over ? 0.7 : 0
+                        }}
+                    >
+                        이미지 또는 파일을 여기에 놓으세요
+                    </p>
+                </div>
+            </div>
             <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 pb-24 relative">
                 {show_scroll_button && (
                     <button
@@ -673,7 +883,8 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                 <div className="max-w-4xl mx-auto">
                     {messages.map((msg, index) => {
                         const unique_key = `${msg.type}-${msg.timestamp}-${msg.nickname}-${index}`;
-                        if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji)) {
+                        if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji || msg.file_data)) {
+                            console.log('[렌더링] 메시지:', msg.nickname, msg.file_data ? `파일: ${msg.file_name}` : '', msg.image_data ? '이미지' : '', msg.message || '');
                             return (
                                 <ChatMessage
                                     key={unique_key}
@@ -683,12 +894,16 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                     isOwn={msg.nickname === nickname}
                                     image_data={msg.image_data}
                                     emoji={msg.emoji}
+                                    file_data={msg.file_data}
+                                    file_name={msg.file_name}
+                                    file_size={msg.file_size}
+                                    file_type={msg.file_type}
                                     message_id={msg.message_id}
                                     read_count={msg.read_count}
                                     total_users={user_list.length}
                                 />
                             );
-                        } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji) && msg.target_nickname) {
+                        } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji || msg.file_data) && msg.target_nickname) {
                             const is_sender = msg.nickname === nickname;
                             const is_receiver = msg.target_nickname.toLowerCase() === nickname.toLowerCase();
                             
@@ -705,6 +920,10 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
                                         current_nickname={nickname}
                                         image_data={msg.image_data}
                                         emoji={msg.emoji}
+                                        file_data={msg.file_data}
+                                        file_name={msg.file_name}
+                                        file_size={msg.file_size}
+                                        file_type={msg.file_type}
                                     />
                                 );
                             }

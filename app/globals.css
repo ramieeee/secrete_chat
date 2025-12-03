@@ -170,3 +170,12 @@ input::placeholder {
 .whisper-expand {
   animation: whisperExpand 0.2s ease-out;
 }
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}

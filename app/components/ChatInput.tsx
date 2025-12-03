@@ -4,7 +4,7 @@ import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface ChatInputProps {
-    onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string) => void;
+    onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string, file_data?: string, file_name?: string, file_size?: number, file_type?: string) => void;
     disabled?: boolean;
     user_list: string[];
     current_nickname: string;
@@ -73,8 +73,12 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            await uploadImage(file);
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                await uploadImage(file);
+            } else {
+                await uploadFile(file);
+            }
         }
         if (file_input_ref.current) {
             file_input_ref.current.value = '';
@@ -115,6 +119,59 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
         } catch (error) {
             console.error('이미지 처리 오류:', error);
             alert('이미지 처리에 실패했습니다.');
+            setIsUploading(false);
+        }
+    };
+
+    const uploadFile = async (file: File) => {
+        console.log('ChatInput: 파일 업로드 시작:', file.name, file.size, file.type);
+        
+        if (disabled || is_uploading) {
+            console.warn('ChatInput: 업로드 불가 (disabled:', disabled, ', is_uploading:', is_uploading, ')');
+            return;
+        }
+
+        const max_size = 10 * 1024 * 1024;
+        if (file.size > max_size) {
+            alert('파일 크기는 10MB 이하여야 합니다.');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const result = e.target?.result as string;
+                console.log('ChatInput: 파일 읽기 완료, 데이터 크기:', result.length);
+                
+                if (selected_target) {
+                    console.log('ChatInput: 귓속말로 파일 전송:', selected_target);
+                    onSendMessage('', selected_target, undefined, undefined, result, file.name, file.size, file.type);
+                } else {
+                    console.log('ChatInput: 일반 메시지로 파일 전송');
+                    onSendMessage('', undefined, undefined, undefined, result, file.name, file.size, file.type);
+                }
+                setIsUploading(false);
+            };
+
+            reader.onerror = (error) => {
+                console.error('ChatInput: 파일 읽기 오류:', error);
+                alert('파일을 읽는데 실패했습니다.');
+                setIsUploading(false);
+            };
+
+            reader.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    console.log(`ChatInput: 파일 읽기 진행: ${percent.toFixed(1)}%`);
+                }
+            };
+
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('ChatInput: 파일 처리 오류:', error);
+            alert('파일 처리에 실패했습니다.');
             setIsUploading(false);
         }
     };
@@ -208,17 +265,17 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                         type="file"
                         ref={file_input_ref}
                         onChange={handleFileSelect}
-                        accept="image/*"
                         className="hidden"
-                        id="image-upload"
+                        id="file-upload"
                     />
                     <label
-                        htmlFor="image-upload"
+                        htmlFor="file-upload"
                         className={`neumorphic-button w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${disabled || is_uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         style={{ 
                             color: theme_colors.input_text,
                             fontFamily: 'var(--font-sans)'
                         }}
+                        title="파일 업로드"
                     >
                         <svg 
                             width="14" 
@@ -230,9 +287,9 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                             strokeLinecap="round" 
                             strokeLinejoin="round"
                         >
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <polyline points="21 15 16 10 5 21"></polyline>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>
                     </label>
                     
@@ -357,7 +414,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             
             {is_uploading && (
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full text-sm mb-2" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                    이미지 처리 중...
+                    파일 처리 중...
                 </div>
             )}
         </div>
