@@ -290,11 +290,13 @@ export default function ChatMessage({
                                 <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     {formatTime(timestamp)}
                                 </span>
+                                <div className="flex flex-row items-center" style={{ minWidth: '6px' }}>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500, minWidth: '20px', textAlign: 'right' }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                         {read_count}
                                     </span>
                                 )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -309,11 +311,13 @@ export default function ChatMessage({
                                 <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                     {formatTime(timestamp)}
                                 </span>
+                                <div className="flex flex-row items-center" style={{ minWidth: '6px' }}>
                                 {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500, minWidth: '20px', textAlign: 'right' }}>
+                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                                         {read_count}
                                     </span>
                                 )}
+                                </div>
                             </div>
                         </div>
                     )}
