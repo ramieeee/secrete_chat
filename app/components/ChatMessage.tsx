@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '../contexts/ThemeContext';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 interface ChatMessageProps {
     nickname: string;
@@ -41,6 +41,27 @@ export default function ChatMessage({
     total_users
 }: ChatMessageProps) {
     const { theme_colors } = useTheme();
+    const [show_image_modal, setShowImageModal] = useState(false);
+    const [show_text_modal, setShowTextModal] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowImageModal(false);
+                setShowTextModal(false);
+            }
+        };
+
+        if (show_image_modal || show_text_modal) {
+            document.addEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = '';
+        };
+    }, [show_image_modal, show_text_modal]);
     
     // 사용자별 색상 생성 (어두운 색감, 배경과 구분)
     const user_color = useMemo(() => {
@@ -68,41 +89,35 @@ export default function ChatMessage({
         });
     };
     
-    const openFullTextPopup = () => {
-        const new_window = window.open('', '_blank', 'width=800,height=600');
-        if (new_window) {
-            new_window.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>전체 텍스트</title>
-                    <style>
-                        body {
-                            margin: 0;
-                            padding: 20px;
-                            background: ${theme_colors.chat_background};
-                            color: ${theme_colors.input_text};
-                            font-family: var(--font-sans), sans-serif;
-                            white-space: pre-wrap;
-                            word-wrap: break-word;
-                            overflow-wrap: break-word;
-                        }
-                        pre {
-                            margin: 0;
-                            font-family: inherit;
-                            white-space: pre-wrap;
-                            word-wrap: break-word;
-                            overflow-wrap: break-word;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-                </body>
-                </html>
-            `);
-            new_window.document.close();
+    const openFullTextModal = () => {
+        setShowTextModal(true);
+    };
+
+    const openImageModal = () => {
+        // Extension(iframe) 환경인지 확인
+        const is_in_iframe = window !== window.parent;
+        
+        if (is_in_iframe && image_data) {
+            // Extension의 Webview로 메시지 전송 → Simple Browser로 열기
+            window.parent.postMessage({ type: 'openImage', url: image_data }, '*');
+        } else {
+            setShowImageModal(true);
+        }
+    };
+
+    const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Extension(iframe) 환경인지 확인
+        const is_in_iframe = window !== window.parent;
+        
+        if (is_in_iframe) {
+            // Extension의 Webview로 메시지 전송 → Simple Browser로 열기
+            window.parent.postMessage({ type: 'openUrl', url: url }, '*');
+        } else {
+            // 일반 브라우저에서는 새 탭으로 열기
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
     };
     
@@ -111,7 +126,6 @@ export default function ChatMessage({
         
         const parts = text.split(url_pattern);
         return parts.map((part, index) => {
-            // 새로운 정규식으로 매번 테스트 (global 플래그 문제 방지)
             const is_url = /^https?:\/\/[^\s]+$/.test(part);
             if (is_url) {
                 const display_text = part.length > 50 ? `${part.substring(0, 50)}...` : part;
@@ -119,11 +133,9 @@ export default function ChatMessage({
                     <a
                         key={index}
                         href={part}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:opacity-80 transition-opacity break-all"
+                        className="underline hover:opacity-80 transition-opacity break-all cursor-pointer"
                         style={{ color: user_color, maxWidth: 'min(85vw, 600px)', display: 'inline-block', wordBreak: 'break-all' }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => handleLinkClick(e, part)}
                     >
                         {display_text}
                     </a>
@@ -168,6 +180,59 @@ export default function ChatMessage({
     };
 
     return (
+        <>
+        {show_image_modal && image_data && (
+            <div 
+                className="fixed inset-0 z-[100] flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
+                onClick={() => setShowImageModal(false)}
+            >
+                <button
+                    className="absolute top-4 right-4 text-white text-2xl hover:opacity-70 transition-opacity"
+                    onClick={() => setShowImageModal(false)}
+                    style={{ fontFamily: 'var(--font-sans)' }}
+                >
+                    ✕
+                </button>
+                <img 
+                    src={image_data} 
+                    alt="전체 이미지" 
+                    className="max-w-[90vw] max-h-[90vh] object-contain"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            </div>
+        )}
+        {show_text_modal && (
+            <div 
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
+                onClick={() => setShowTextModal(false)}
+            >
+                <div 
+                    className="relative w-full max-w-3xl max-h-[80vh] rounded-2xl p-6 overflow-auto"
+                    style={{ backgroundColor: theme_colors.chat_background }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        className="absolute top-3 right-3 text-xl hover:opacity-70 transition-opacity"
+                        onClick={() => setShowTextModal(false)}
+                        style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)' }}
+                    >
+                        ✕
+                    </button>
+                    <pre 
+                        className="text-sm whitespace-pre-wrap break-words"
+                        style={{ 
+                            color: theme_colors.input_text, 
+                            fontFamily: 'var(--font-sans)',
+                            fontWeight: 400
+                        }}
+                    >
+                        {message}
+                    </pre>
+                </div>
+            </div>
+        )}
         <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
                 <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -189,12 +254,7 @@ export default function ChatMessage({
                                     src={image_data} 
                                     alt="전송된 이미지" 
                                     className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => {
-                                        const new_window = window.open();
-                                        if (new_window) {
-                                            new_window.document.write(`<img src="${image_data}" style="max-width: 100%; height: auto;" />`);
-                                        }
-                                    }}
+                                    onClick={openImageModal}
                                 />
                             </div>
                         )}
@@ -266,7 +326,7 @@ export default function ChatMessage({
                                             {renderMessageWithLinks(message)}
                                         </div>
                                         <button
-                                            onClick={openFullTextPopup}
+                                            onClick={openFullTextModal}
                                             className="mt-1 text-xs underline hover:opacity-80 transition-opacity"
                                             style={{ color: theme_colors.info_text }}
                                         >
@@ -324,6 +384,7 @@ export default function ChatMessage({
                 </div>
             </div>
         </div>
+        </>
     );
 }
 

@@ -29,10 +29,11 @@ interface Message {
 
 interface ChatRoomProps {
     nickname: string;
+    server_url: string;
     onDisconnect: (errorMessage?: string) => void;
 }
 
-export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
+export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoomProps) {
     const { theme_colors } = useTheme();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isConnected, setIsConnected] = useState(false);
@@ -78,9 +79,10 @@ export default function ChatRoom({ nickname, onDisconnect }: ChatRoomProps) {
             is_reconnecting_ref.current = true;
 
             try {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const hostname = window.location.hostname;
-                const ws_port = process.env.NEXT_PUBLIC_WS_PORT || '9999';
+                const server_url_obj = new URL(server_url);
+                const protocol = server_url_obj.protocol === 'https:' ? 'wss:' : 'ws:';
+                const hostname = server_url_obj.hostname;
+                const ws_port = '9999';
                 const ws_url = `${protocol}//${hostname}:${ws_port}`;
                 ws = new WebSocket(ws_url);
                 ws_ref.current = ws;

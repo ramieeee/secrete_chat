@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1a1a1a;
-  --foreground: #e0e0e0;
-  --theme-chat-background: #1a1a1a;
-  --theme-input-bar-background: #252525;
-  --theme-button-input-background: #2a2a2a;
-  --theme-input-text: #e0e0e0;
-  --theme-info-text: #888888;
+  --background: #181818;
+  --foreground: #cccccc;
+  --theme-chat-background: #181818;
+  --theme-input-bar-background: #1f1f1f;
+  --theme-button-input-background: #2d2d2d;
+  --theme-input-text: #cccccc;
+  --theme-info-text: #6e6e6e;
 }
 
 @theme inline {
@@ -18,8 +18,8 @@
 }
 
 body {
-  background: #1a1a1a;
-  color: #e0e0e0;
+  background: #181818;
+  color: #cccccc;
   font-family: var(--font-sans);
   overflow-x: hidden;
   font-weight: 400;
@@ -66,29 +66,29 @@ input::placeholder {
   opacity: 0.7;
 }
 
-/* 메탈 느낌 스타일 */
+/* Cursor 사이드바 테마 스타일 */
 .neumorphic {
-  background: linear-gradient(145deg, #1f1f1f, #151515);
+  background: linear-gradient(145deg, #1f1f1f, #181818);
   box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 1px 4px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    0 1px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .neumorphic-inset {
-  background: linear-gradient(145deg, #151515, #1f1f1f);
+  background: linear-gradient(145deg, #181818, #1f1f1f);
   box-shadow: 
-    inset 6px 6px 12px rgba(0, 0, 0, 0.5),
-    inset -3px -3px 6px rgba(255, 255, 255, 0.03);
+    inset 6px 6px 12px rgba(0, 0, 0, 0.6),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.02);
 }
 
 .neumorphic-button {
-  background: linear-gradient(145deg, #2d2d2d, #222222);
+  background: linear-gradient(145deg, #2d2d2d, #252525);
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
   border: none;
   position: relative;
@@ -127,11 +127,11 @@ input::placeholder {
 }
 
 .neumorphic-message {
-  background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
+  background: linear-gradient(145deg, #2d2d2d, #232323);
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
   border: none;
   position: relative;
 }
@@ -148,11 +148,11 @@ input::placeholder {
 }
 
 .neumorphic-input {
-  background: linear-gradient(145deg, #1f1f1f, #1a1a1a);
+  background: linear-gradient(145deg, #1f1f1f, #181818);
   box-shadow: 
-    inset 3px 3px 6px rgba(0, 0, 0, 0.4),
-    inset -1px -1px 3px rgba(255, 255, 255, 0.03),
-    0 1px 0 rgba(255, 255, 255, 0.05);
+    inset 3px 3px 6px rgba(0, 0, 0, 0.5),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.02),
+    0 1px 0 rgba(255, 255, 255, 0.03);
   border: none;
 }
 
@@ -178,4 +178,32 @@ input::placeholder {
   50% {
     transform: scale(1.05);
   }
+}
+
+/* Cursor 스타일 스크롤바 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #424242 transparent;
 }

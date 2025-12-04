@@ -119,13 +119,13 @@ export function generateThemeColors(selected_color: string): ThemeColors {
 }
 
 /**
- * 기본 테마 색상 (짙은 회색 메탈 계열)
+ * 기본 테마 색상 (Cursor 사이드바 테마)
  */
 export const defaultThemeColors: ThemeColors = {
-    chat_background: '#1a1a1a',
-    input_bar_background: '#252525',
-    button_input_background: '#2a2a2a',
-    input_text: '#e0e0e0',
-    info_text: '#888888'
+    chat_background: '#181818',
+    input_bar_background: '#1f1f1f',
+    button_input_background: '#2d2d2d',
+    input_text: '#cccccc',
+    info_text: '#6e6e6e'
 };
 

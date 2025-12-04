@@ -1,0 +1,67 @@
+{
+  "name": "secrete-chat",
+  "displayName": "Secrete Chat",
+  "description": "Real-time chat integrated into Cursor sidebar",
+  "version": "1.0.0",
+  "publisher": "secrete-chat",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:secreteChat.chatView",
+    "onCommand:secreteChat.openChat",
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "secrete-chat",
+          "title": "Chat",
+          "icon": "resources/chat.svg"
+        }
+      ]
+    },
+    "views": {
+      "secrete-chat": [
+        {
+          "type": "webview",
+          "id": "secreteChat.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "secreteChat.openChat",
+        "title": "Open Secrete Chat"
+      }
+    ],
+    "configuration": {
+      "title": "Secrete Chat",
+      "properties": {
+        "secreteChat.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Chat server URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+
