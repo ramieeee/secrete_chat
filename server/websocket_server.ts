@@ -60,16 +60,22 @@ wss.on('connection', (ws: WebSocket) => {
                     return;
                 }
                 
-                const existing_ws = Array.from(clients.entries()).find(
-                    ([, existing_nickname]) => existing_nickname.toLowerCase() === trimmed_nickname.toLowerCase()
-                )?.[0];
+                const is_duplicate = Array.from(clients.entries()).some(
+                    ([existing_ws, existing_nickname]) => 
+                        existing_ws !== ws && existing_nickname.toLowerCase() === trimmed_nickname.toLowerCase()
+                );
                 
-                if (existing_ws && existing_ws !== ws) {
-                    // 기존 연결을 먼저 clients에서 제거하여 close 이벤트에서 중복 처리 방지
-                    clients.delete(existing_ws);
-                    if (existing_ws.readyState === WebSocket.OPEN) {
-                        existing_ws.close(1000, '새로운 연결로 인한 종료');
-                    }
+                if (is_duplicate) {
+                    const reject_message: ChatMessage = {
+                        type: 'join_rejected',
+                        nickname: trimmed_nickname,
+                        timestamp: Date.now(),
+                        reason: '이미 사용 중인 닉네임입니다.'
+                    };
+                    ws.send(JSON.stringify(reject_message));
+                    ws.close(1008, '닉네임 중복');
+                    console.log(`${trimmed_nickname} 닉네임 중복으로 입장 거부`);
+                    return;
                 }
                 
                 clients.set(ws, trimmed_nickname);
