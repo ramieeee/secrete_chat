@@ -746,25 +746,25 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            <div className="relative border-b px-2 py-2 md:px-4 md:py-3 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
-                <div className="flex items-center justify-between max-w-4xl mx-auto flex-wrap gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                        <h1 className="text-sm font-bold" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            Let us Chat!
+            <div className="relative border-b px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
+                <div className="flex items-center justify-between max-w-4xl mx-auto gap-1 sm:gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 md:gap-3 min-w-0 flex-1">
+                        <h1 className="text-xs sm:text-sm font-bold hidden sm:block" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            Chat
                         </h1>
-                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm font-bold" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            {isConnected ? 'ONLINE' : connectionError ? 'ERROR' : 'CONNECTING...'}
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-xs sm:text-sm font-bold truncate" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            {isConnected ? 'ON' : 'OFF'}
                         </span>
                         <UserListChip user_count={user_list.length} user_list={user_list} />
                     </div>
-                    <div className="flex items-center gap-2 md:gap-3">
-                        <span className="text-sm hidden sm:inline" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                    <div className="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
+                        <span className="text-xs hidden sm:inline truncate max-w-[80px]" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
                             &gt; {nickname}
                         </span>
                         <button
                             onClick={handleDisconnect}
-                            className="neumorphic-button px-3 py-1.5 rounded-full text-xs transition-all"
+                            className="neumorphic-button px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs transition-all"
                             style={{ 
                                 color: theme_colors.input_text,
                                 fontFamily: 'var(--font-sans)', 
