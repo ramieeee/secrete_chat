@@ -235,11 +235,28 @@ export default function ChatMessage({
                                 link.download = `image_${Date.now()}.png`;
                                 link.click();
                             }}
+                            title="다운로드"
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7 10 12 15 17 10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </button>
+                        <button
+                            className="px-3 py-1.5 rounded-lg text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-1"
+                            onClick={() => {
+                                const new_window = window.open(image_data, '_blank');
+                                if (!new_window) {
+                                    window.parent.postMessage({ type: 'openImage', url: image_data }, '*');
+                                }
+                            }}
+                            title="새 창에서 열기"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
                             </svg>
                         </button>
                     </div>
