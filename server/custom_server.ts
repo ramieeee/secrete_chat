@@ -22,10 +22,76 @@ interface ChatMessage {
 
 const clients = new Map<WebSocket, string>();
 
+const temp_images = new Map<string, { data: string; mime_type: string }>();
+
+function generateId(): string {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
 app.prepare().then(() => {
     const server = createServer(async (req, res) => {
         try {
             const parsed_url = parse(req.url!, true);
+            
+            if (req.method === 'POST' && parsed_url.pathname === '/api/temp-image') {
+                let body = '';
+                req.on('data', chunk => { body += chunk; });
+                req.on('end', () => {
+                    try {
+                        const { image_data } = JSON.parse(body);
+                        if (!image_data) {
+                            res.statusCode = 400;
+                            res.end(JSON.stringify({ error: 'No image data' }));
+                            return;
+                        }
+                        
+                        const match = image_data.match(/^data:([^;]+);base64,(.+)$/);
+                        if (!match) {
+                            res.statusCode = 400;
+                            res.end(JSON.stringify({ error: 'Invalid image format' }));
+                            return;
+                        }
+                        
+                        const mime_type = match[1];
+                        const base64_data = match[2];
+                        const id = generateId();
+                        
+                        temp_images.set(id, { data: base64_data, mime_type });
+                        
+                        setTimeout(() => {
+                            temp_images.delete(id);
+                            console.log(`Temp image ${id} deleted`);
+                        }, 60000);
+                        
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ url: `/api/temp-image/${id}` }));
+                        console.log(`Temp image ${id} created (expires in 60s)`);
+                    } catch (err) {
+                        res.statusCode = 500;
+                        res.end(JSON.stringify({ error: 'Server error' }));
+                    }
+                });
+                return;
+            }
+            
+            if (req.method === 'GET' && parsed_url.pathname?.startsWith('/api/temp-image/')) {
+                const id = parsed_url.pathname.split('/').pop();
+                const image = id ? temp_images.get(id) : null;
+                
+                if (!image) {
+                    res.statusCode = 404;
+                    res.setHeader('Content-Type', 'text/html');
+                    res.end('<html><body style="background:#1a1a2e;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif"><h2>Image expired or not found</h2></body></html>');
+                    return;
+                }
+                
+                const buffer = Buffer.from(image.data, 'base64');
+                res.setHeader('Content-Type', image.mime_type);
+                res.setHeader('Content-Length', buffer.length);
+                res.end(buffer);
+                return;
+            }
+            
             await handle(req, res, parsed_url);
         } catch (err) {
             console.error('Error occurred handling', req.url, err);

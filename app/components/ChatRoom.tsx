@@ -307,9 +307,21 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
 
         document.addEventListener('visibilitychange', handle_visibility_change);
 
+        const handle_extension_message = (e: MessageEvent) => {
+            if (e.data?.type === 'visibilityChange') {
+                console.log('[ChatRoom] Extension visibility changed:', e.data.visible);
+                is_visible_ref.current = e.data.visible;
+                if (e.data.visible) {
+                    handle_visibility_change();
+                }
+            }
+        };
+        window.addEventListener('message', handle_extension_message);
+
         return () => {
             is_mounted = false;
             document.removeEventListener('visibilitychange', handle_visibility_change);
+            window.removeEventListener('message', handle_extension_message);
             if (reconnect_timeout_ref.current) {
                 clearTimeout(reconnect_timeout_ref.current);
                 reconnect_timeout_ref.current = null;

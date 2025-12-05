@@ -43,11 +43,21 @@ export default function ChatMessage({
     const { theme_colors } = useTheme();
     const [show_image_modal, setShowImageModal] = useState(false);
     const [show_text_modal, setShowTextModal] = useState(false);
+    const [image_scale, setImageScale] = useState(1);
+    const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
+    const [is_dragging, setIsDragging] = useState(false);
+    const [drag_start, setDragStart] = useState({ x: 0, y: 0 });
+
+    const resetImageView = () => {
+        setImageScale(1);
+        setImagePosition({ x: 0, y: 0 });
+    };
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 setShowImageModal(false);
+                resetImageView();
                 setShowTextModal(false);
             }
         };
@@ -93,32 +103,17 @@ export default function ChatMessage({
         setShowTextModal(true);
     };
 
-    const openImageModal = () => {
-        // Extension(iframe) 환경인지 확인
-        const is_in_iframe = window !== window.parent;
-        
-        if (is_in_iframe && image_data) {
-            // Extension의 Webview로 메시지 전송 → Simple Browser로 열기
-            window.parent.postMessage({ type: 'openImage', url: image_data }, '*');
-        } else {
-            setShowImageModal(true);
-        }
+    const openImageModal = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!image_data) return;
+        setShowImageModal(true);
     };
 
     const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
         e.preventDefault();
         e.stopPropagation();
-        
-        // Extension(iframe) 환경인지 확인
-        const is_in_iframe = window !== window.parent;
-        
-        if (is_in_iframe) {
-            // Extension의 Webview로 메시지 전송 → Simple Browser로 열기
-            window.parent.postMessage({ type: 'openUrl', url: url }, '*');
-        } else {
-            // 일반 브라우저에서는 새 탭으로 열기
-            window.open(url, '_blank', 'noopener,noreferrer');
-        }
+        window.open(url, '_blank', 'noopener,noreferrer');
     };
     
     const renderMessageWithLinks = (text: string) => {
@@ -183,23 +178,112 @@ export default function ChatMessage({
         <>
         {show_image_modal && image_data && (
             <div 
-                className="fixed inset-0 z-[100] flex items-center justify-center"
-                style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
-                onClick={() => setShowImageModal(false)}
+                className="fixed inset-0 z-[100] flex flex-col"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.95)' }}
             >
-                <button
-                    className="absolute top-4 right-4 text-white text-2xl hover:opacity-70 transition-opacity"
-                    onClick={() => setShowImageModal(false)}
-                    style={{ fontFamily: 'var(--font-sans)' }}
+                <div className="flex items-center justify-between p-2 bg-black/50">
+                    <div className="flex gap-1">
+                        <button
+                            className="px-2 py-1.5 rounded-lg text-white text-xs hover:bg-white/20 transition-colors"
+                            onClick={() => setImageScale(s => Math.max(0.5, s - 0.5))}
+                            title="축소"
+                        >
+                            ➖
+                        </button>
+                        <button
+                            className="px-2 py-1.5 rounded-lg text-white text-xs hover:bg-white/20 transition-colors min-w-[50px]"
+                            onClick={resetImageView}
+                            title="리셋"
+                        >
+                            {Math.round(image_scale * 100)}%
+                        </button>
+                        <button
+                            className="px-2 py-1.5 rounded-lg text-white text-xs hover:bg-white/20 transition-colors"
+                            onClick={() => setImageScale(s => Math.min(5, s + 0.5))}
+                            title="확대"
+                        >
+                            ➕
+                        </button>
+                        <button
+                            className="px-3 py-1.5 rounded-lg text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-1 ml-2"
+                            onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = image_data;
+                                link.download = `image_${Date.now()}.png`;
+                                link.click();
+                            }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button
+                        className="w-8 h-8 rounded-lg text-white text-lg hover:bg-white/20 transition-colors flex items-center justify-center"
+                        onClick={() => { setShowImageModal(false); resetImageView(); }}
+                    >
+                        ✕
+                    </button>
+                </div>
+                <div 
+                    className="flex-1 overflow-hidden relative"
+                    onMouseDown={(e) => {
+                        if (image_scale > 1) {
+                            setIsDragging(true);
+                            setDragStart({ x: e.clientX - image_position.x, y: e.clientY - image_position.y });
+                        }
+                    }}
+                    onMouseMove={(e) => {
+                        if (is_dragging && image_scale > 1) {
+                            setImagePosition({
+                                x: e.clientX - drag_start.x,
+                                y: e.clientY - drag_start.y
+                            });
+                        }
+                    }}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
+                    onWheel={(e) => {
+                        e.preventDefault();
+                        const delta = e.deltaY > 0 ? -0.2 : 0.2;
+                        setImageScale(s => Math.max(0.5, Math.min(5, s + delta)));
+                    }}
+                    onDoubleClick={() => {
+                        if (image_scale === 1) {
+                            setImageScale(2);
+                            setImagePosition({ x: 0, y: 0 });
+                        } else {
+                            resetImageView();
+                        }
+                    }}
+                    style={{ cursor: image_scale > 1 ? (is_dragging ? 'grabbing' : 'grab') : 'zoom-in' }}
                 >
-                    ✕
-                </button>
-                <img 
-                    src={image_data} 
-                    alt="전체 이미지" 
-                    className="max-w-[90vw] max-h-[90vh] object-contain"
-                    onClick={(e) => e.stopPropagation()}
-                />
+                    <div 
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        style={{
+                            transform: `translate(${image_position.x}px, ${image_position.y}px)`,
+                            transition: is_dragging ? 'none' : 'transform 0.15s ease-out'
+                        }}
+                    >
+                        <img 
+                            src={image_data} 
+                            alt="전체 이미지" 
+                            className="object-contain select-none"
+                            style={{ 
+                                transform: `scale(${image_scale})`,
+                                maxWidth: '95%',
+                                maxHeight: 'calc(100vh - 60px)',
+                                transition: 'transform 0.2s ease-out'
+                            }}
+                            draggable={false}
+                        />
+                    </div>
+                </div>
+                <div className="text-center text-white/50 text-xs py-1 bg-black/30">
+                    스크롤: 확대/축소 | 더블클릭: 2배 확대 | 드래그: 이동
+                </div>
             </div>
         )}
         {show_text_modal && (
@@ -255,6 +339,8 @@ export default function ChatMessage({
                                     alt="전송된 이미지" 
                                     className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                     onClick={openImageModal}
+                                    draggable={false}
+                                    onDragStart={(e) => e.preventDefault()}
                                 />
                             </div>
                         )}

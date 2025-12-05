@@ -1,11 +1,33 @@
 import * as vscode from 'vscode';
+import WebSocket from 'ws';
 
 const SERVER_URL_KEY = 'secreteChat.serverUrl';
 
+let status_bar_item: vscode.StatusBarItem;
+let ws_monitor: WebSocket | null = null;
+let has_new_message = false;
+let is_intentional_close = false;
+
 export function activate(context: vscode.ExtensionContext) {
-    console.log('[Secrete Chat] Extension is activating...');
-    
-    const provider = new ChatViewProvider(context.extensionUri, context);
+    status_bar_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    status_bar_item.text = '○';
+    status_bar_item.tooltip = 'Secrete Chat';
+    status_bar_item.command = 'secreteChat.openChat';
+    status_bar_item.show();
+    context.subscriptions.push(status_bar_item);
+
+    const provider = new ChatViewProvider(
+        context.extensionUri, 
+        context, 
+        () => {
+            has_new_message = false;
+            status_bar_item.text = '○';
+            status_bar_item.color = undefined;
+        },
+        (url: string) => {
+            connectWebSocketMonitor(url, provider);
+        }
+    );
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -21,24 +43,83 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('secreteChat.openChat', () => {
-            console.log('[Secrete Chat] Opening chat view...');
+            has_new_message = false;
+            status_bar_item.text = '○';
+            status_bar_item.color = undefined;
             vscode.commands.executeCommand('workbench.view.extension.secrete-chat');
         })
     );
 
-    console.log('[Secrete Chat] Extension activated successfully!');
+    const server_url = context.globalState.get<string>(SERVER_URL_KEY);
+    if (server_url) {
+        connectWebSocketMonitor(server_url, provider);
+    }
+}
+
+function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider) {
+    try {
+        if (ws_monitor) {
+            is_intentional_close = true;
+            ws_monitor.close();
+            ws_monitor = null;
+        }
+        
+        const url = new URL(server_url);
+        const ws_url = `ws://${url.hostname}:9999`;
+        
+        is_intentional_close = false;
+        ws_monitor = new WebSocket(ws_url);
+        
+        ws_monitor.on('open', () => {
+            const join_message = {
+                type: 'join',
+                nickname: '__monitor__' + Math.random().toString(36).substring(7)
+            };
+            ws_monitor?.send(JSON.stringify(join_message));
+        });
+        
+        ws_monitor.on('message', (raw_data) => {
+            try {
+                const data = JSON.parse(raw_data.toString());
+                if (data.type === 'message' || data.type === 'whisper') {
+                    if (!provider.isVisible()) {
+                        has_new_message = true;
+                        status_bar_item.text = '●';
+                        status_bar_item.color = new vscode.ThemeColor('charts.red');
+                    }
+                }
+            } catch {
+                // ignore parse errors
+            }
+        });
+        
+        ws_monitor.on('error', () => {});
+        
+        ws_monitor.on('close', () => {
+            if (!is_intentional_close) {
+                setTimeout(() => connectWebSocketMonitor(server_url, provider), 5000);
+            }
+        });
+    } catch {
+        // ignore connection errors
+    }
 }
 
 class ChatViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'secreteChat.chatView';
 
     private _view?: vscode.WebviewView;
+    private _isVisible = false;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _context: vscode.ExtensionContext
-    ) {
-        console.log('[Secrete Chat] ChatViewProvider initialized');
+        private readonly _context: vscode.ExtensionContext,
+        private readonly _onViewed?: () => void,
+        private readonly _onUrlSaved?: (url: string) => void
+    ) {}
+
+    public isVisible(): boolean {
+        return this._isVisible && this._view?.visible === true;
     }
 
     public resolveWebviewView(
@@ -46,7 +127,6 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
         _context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken
     ) {
-        console.log('[Secrete Chat] resolveWebviewView called');
         this._view = webviewView;
 
         webviewView.webview.options = {
@@ -57,17 +137,15 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
         this._updateWebview();
 
         webviewView.webview.onDidReceiveMessage(async (message) => {
-            console.log('[Secrete Chat] Received message:', message);
             if (message.type === 'openExternal' && message.url) {
                 vscode.env.openExternal(vscode.Uri.parse(message.url));
             } else if (message.type === 'openSimpleBrowser' && message.url) {
-                console.log('[Secrete Chat] Opening Simple Browser:', message.url);
                 vscode.commands.executeCommand('simpleBrowser.show', message.url);
             } else if (message.type === 'openImage' && message.url) {
-                console.log('[Secrete Chat] Opening Image in Simple Browser');
-                vscode.commands.executeCommand('simpleBrowser.show', message.url);
+                this._openImagePanel(message.url);
             } else if (message.type === 'saveUrl' && message.url) {
                 await this._context.globalState.update(SERVER_URL_KEY, message.url);
+                this._onUrlSaved?.(message.url);
                 this._updateWebview();
             } else if (message.type === 'resetUrl') {
                 await this._context.globalState.update(SERVER_URL_KEY, undefined);
@@ -78,10 +156,18 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
         });
 
         webviewView.onDidChangeVisibility(() => {
+            this._isVisible = webviewView.visible;
+            webviewView.webview.postMessage({ 
+                type: 'visibilityChange', 
+                visible: webviewView.visible 
+            });
             if (webviewView.visible) {
-                this._updateWebview();
+                this._onViewed?.();
             }
         });
+
+        this._isVisible = true;
+        this._onViewed?.();
     }
 
     private _updateWebview() {
@@ -89,6 +175,48 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
             const saved_url = this._context.globalState.get<string>(SERVER_URL_KEY);
             this._view.webview.html = this._getHtmlForWebview(saved_url);
         }
+    }
+
+    private _openImagePanel(image_url: string) {
+        const panel = vscode.window.createWebviewPanel(
+            'secreteChatImage',
+            '이미지 보기',
+            vscode.ViewColumn.One,
+            {
+                enableScripts: false
+            }
+        );
+
+        panel.webview.html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline';">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        img {
+            max-width: 100%;
+            max-height: calc(100vh - 40px);
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <img src="${image_url}" alt="이미지" />
+</body>
+</html>`;
     }
 
     private _getHtmlForWebview(saved_url?: string): string {
@@ -100,13 +228,14 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
 
     private _getUrlInputHtml(): string {
         const default_url = 'http://172.29.12.119:3000';
+        const nonce = this._getNonce();
 
         return `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <style>
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -295,7 +424,7 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
         <div class="error" id="error"></div>
         <div class="hint">서버가 실행 중인지 확인하세요</div>
     </div>
-    <script>
+    <script nonce="${nonce}">
         (function() {
             const vscode = acquireVsCodeApi();
             const input = document.getElementById('urlInput');
@@ -340,12 +469,13 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     private _getChatHtml(server_url: string): string {
+        const nonce = this._getNonce();
         return `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src *; connect-src *; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src *; connect-src *; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <style>
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -514,9 +644,9 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
             <div class="loading-text">서버 연결 중</div>
             <div class="retry" id="retry">시도 1회</div>
         </div>
-        <iframe id="frame" src="${server_url}"></iframe>
+        <iframe id="frame" src="${server_url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
     </div>
-    <script>
+    <script nonce="${nonce}">
         (function() {
             const vscode = acquireVsCodeApi();
             const frame = document.getElementById('frame');
@@ -565,12 +695,25 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
             window.addEventListener('message', (e) => {
                 if (e.data && e.data.type === 'openUrl') {
                     vscode.postMessage({ type: 'openSimpleBrowser', url: e.data.url });
+                } else if (e.data && e.data.type === 'openImage') {
+                    vscode.postMessage({ type: 'openImage', url: e.data.url });
+                } else if (e.data && e.data.type === 'visibilityChange') {
+                    frame.contentWindow?.postMessage({ type: 'visibilityChange', visible: e.data.visible }, '*');
                 }
             });
         })();
     </script>
 </body>
 </html>`;
+    }
+
+    private _getNonce(): string {
+        let text = '';
+        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        for (let i = 0; i < 32; i++) {
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
+        }
+        return text;
     }
 }
 
