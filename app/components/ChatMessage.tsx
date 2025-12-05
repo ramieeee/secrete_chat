@@ -44,13 +44,9 @@ export default function ChatMessage({
     const [show_image_modal, setShowImageModal] = useState(false);
     const [show_text_modal, setShowTextModal] = useState(false);
     const [image_scale, setImageScale] = useState(1);
-    const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
-    const [is_dragging, setIsDragging] = useState(false);
-    const [drag_start, setDragStart] = useState({ x: 0, y: 0 });
 
     const resetImageView = () => {
         setImageScale(1);
-        setImagePosition({ x: 0, y: 0 });
     };
 
     useEffect(() => {
@@ -228,23 +224,7 @@ export default function ChatMessage({
                     </button>
                 </div>
                 <div 
-                    className="flex-1 overflow-hidden relative"
-                    onMouseDown={(e) => {
-                        if (image_scale > 1) {
-                            setIsDragging(true);
-                            setDragStart({ x: e.clientX - image_position.x, y: e.clientY - image_position.y });
-                        }
-                    }}
-                    onMouseMove={(e) => {
-                        if (is_dragging && image_scale > 1) {
-                            setImagePosition({
-                                x: e.clientX - drag_start.x,
-                                y: e.clientY - drag_start.y
-                            });
-                        }
-                    }}
-                    onMouseUp={() => setIsDragging(false)}
-                    onMouseLeave={() => setIsDragging(false)}
+                    className="flex-1 overflow-hidden relative flex items-center justify-center"
                     onWheel={(e) => {
                         e.preventDefault();
                         const delta = e.deltaY > 0 ? -0.2 : 0.2;
@@ -253,20 +233,13 @@ export default function ChatMessage({
                     onDoubleClick={() => {
                         if (image_scale === 1) {
                             setImageScale(2);
-                            setImagePosition({ x: 0, y: 0 });
                         } else {
                             resetImageView();
                         }
                     }}
-                    style={{ cursor: image_scale > 1 ? (is_dragging ? 'grabbing' : 'grab') : 'zoom-in' }}
+                    style={{ cursor: image_scale === 1 ? 'zoom-in' : 'zoom-out' }}
                 >
-                    <div 
-                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                        style={{
-                            transform: `translate(${image_position.x}px, ${image_position.y}px)`,
-                            transition: is_dragging ? 'none' : 'transform 0.15s ease-out'
-                        }}
-                    >
+                    <div className="flex items-center justify-center">
                         <img 
                             src={image_data} 
                             alt="전체 이미지" 
@@ -282,7 +255,7 @@ export default function ChatMessage({
                     </div>
                 </div>
                 <div className="text-center text-white/50 text-xs py-1 bg-black/30">
-                    스크롤: 확대/축소 | 더블클릭: 2배 확대 | 드래그: 이동
+                    스크롤: 확대/축소 | 더블클릭: 2배 확대
                 </div>
             </div>
         )}

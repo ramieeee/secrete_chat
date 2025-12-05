@@ -29,6 +29,18 @@ const wss = new WebSocketServer({
 const clients = new Map<WebSocket, string>();
 const message_readers = new Map<string, Set<string>>();
 
+function isMonitor(nickname: string): boolean {
+    return nickname.startsWith('__monitor__');
+}
+
+function getRealUserCount(): number {
+    let count = 0;
+    clients.forEach((nickname) => {
+        if (!isMonitor(nickname)) count++;
+    });
+    return count;
+}
+
 wss.on('listening', () => {
     console.log('웹소켓 서버가 포트 9999에서 실행 중입니다.');
 });
@@ -80,15 +92,19 @@ wss.on('connection', (ws: WebSocket) => {
                 
                 clients.set(ws, trimmed_nickname);
                 
-                const join_message: ChatMessage = {
-                    type: 'join',
-                    nickname: trimmed_nickname,
-                    timestamp: Date.now()
-                };
-                
-                broadcast(join_message, ws);
-                broadcastUserList();
-                console.log(`${trimmed_nickname}님이 입장했습니다.`);
+                if (isMonitor(trimmed_nickname)) {
+                    console.log(`[Monitor] ${trimmed_nickname} connected`);
+                } else {
+                    const join_message: ChatMessage = {
+                        type: 'join',
+                        nickname: trimmed_nickname,
+                        timestamp: Date.now()
+                    };
+                    
+                    broadcast(join_message, ws);
+                    broadcastUserList();
+                    console.log(`${trimmed_nickname}님이 입장했습니다.`);
+                }
             } else if (parsed_data.type === 'message') {
                 if (!clients.has(ws)) {
                     const reject_message: ChatMessage = {
@@ -105,7 +121,7 @@ wss.on('connection', (ws: WebSocket) => {
                 if (!nickname) return;
                 
                 const message_id = `${Date.now()}-${nickname}-${Math.random().toString(36).substring(7)}`;
-                const total_users = clients.size;
+                const total_users = getRealUserCount();
                 const unread_count = total_users > 1 ? total_users - 1 : 0;
                 
                 const chat_message: ChatMessage = {
@@ -134,14 +150,14 @@ wss.on('connection', (ws: WebSocket) => {
             } else if (parsed_data.type === 'read' && parsed_data.message_id) {
                 if (!clients.has(ws)) return;
                 const reader_nickname = clients.get(ws);
-                if (!reader_nickname) return;
+                if (!reader_nickname || isMonitor(reader_nickname)) return;
                 
                 const message_id = parsed_data.message_id;
                 const readers = message_readers.get(message_id);
                 
                 if (readers && !readers.has(reader_nickname)) {
                     readers.add(reader_nickname);
-                    const total_users = clients.size;
+                    const total_users = getRealUserCount();
                     const unread_count = total_users > 1 ? Math.max(0, total_users - 1 - readers.size) : 0;
                     
                     const read_update: ChatMessage = {
@@ -207,23 +223,26 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('close', () => {
         const nickname = clients.get(ws);
         if (nickname) {
-            // clients에서 제거 (이미 제거되었을 수 있으므로 안전하게 처리)
             clients.delete(ws);
             
-            const leave_message: ChatMessage = {
-                type: 'leave',
-                nickname: nickname,
-                timestamp: Date.now()
-            };
-            
-            broadcast(leave_message, ws);
-            
-            message_readers.forEach((readers) => {
-                readers.delete(nickname);
-            });
-            
-            broadcastUserList();
-            console.log(`${nickname}님이 퇴장했습니다.`);
+            if (isMonitor(nickname)) {
+                console.log(`[Monitor] ${nickname} disconnected`);
+            } else {
+                const leave_message: ChatMessage = {
+                    type: 'leave',
+                    nickname: nickname,
+                    timestamp: Date.now()
+                };
+                
+                broadcast(leave_message, ws);
+                
+                message_readers.forEach((readers) => {
+                    readers.delete(nickname);
+                });
+                
+                broadcastUserList();
+                console.log(`${nickname}님이 퇴장했습니다.`);
+            }
         }
     });
 
@@ -246,7 +265,7 @@ function broadcast(message: ChatMessage, exclude_client?: WebSocket) {
 }
 
 function broadcastUserList() {
-    const user_list = Array.from(clients.values());
+    const user_list = Array.from(clients.values()).filter(n => !isMonitor(n));
     const user_list_message: ChatMessage = {
         type: 'user_list',
         nickname: '',
@@ -254,8 +273,8 @@ function broadcastUserList() {
         user_list: user_list
     };
     const message_string = JSON.stringify(user_list_message);
-    clients.forEach((_, client) => {
-        if (client.readyState === WebSocket.OPEN) {
+    clients.forEach((nickname, client) => {
+        if (client.readyState === WebSocket.OPEN && !isMonitor(nickname)) {
             try {
                 client.send(message_string);
             } catch (error) {

@@ -7,8 +7,18 @@ let status_bar_item: vscode.StatusBarItem;
 let ws_monitor: WebSocket | null = null;
 let has_new_message = false;
 let is_intentional_close = false;
+let output_channel: vscode.OutputChannel;
+
+function log(msg: string) {
+    const time = new Date().toLocaleTimeString();
+    output_channel.appendLine(`[${time}] ${msg}`);
+}
 
 export function activate(context: vscode.ExtensionContext) {
+    output_channel = vscode.window.createOutputChannel('Secrete Chat');
+    context.subscriptions.push(output_channel);
+    log('Extension activated');
+    
     status_bar_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     status_bar_item.text = '○';
     status_bar_item.tooltip = 'Secrete Chat';
@@ -60,6 +70,7 @@ function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider)
     try {
         if (ws_monitor) {
             is_intentional_close = true;
+            ws_monitor.removeAllListeners();
             ws_monitor.close();
             ws_monitor = null;
         }
@@ -67,10 +78,13 @@ function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider)
         const url = new URL(server_url);
         const ws_url = `ws://${url.hostname}:9999`;
         
-        is_intentional_close = false;
+        log(`Connecting to: ${ws_url}`);
+        
         ws_monitor = new WebSocket(ws_url);
+        is_intentional_close = false;
         
         ws_monitor.on('open', () => {
+            log('WebSocket connected!');
             const join_message = {
                 type: 'join',
                 nickname: '__monitor__' + Math.random().toString(36).substring(7)
@@ -81,11 +95,13 @@ function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider)
         ws_monitor.on('message', (raw_data) => {
             try {
                 const data = JSON.parse(raw_data.toString());
+                log(`Received: ${data.type}, isVisible: ${provider.isVisible()}`);
                 if (data.type === 'message' || data.type === 'whisper') {
                     if (!provider.isVisible()) {
                         has_new_message = true;
                         status_bar_item.text = '●';
                         status_bar_item.color = new vscode.ThemeColor('charts.red');
+                        log('New message! Status bar → red');
                     }
                 }
             } catch {
@@ -93,15 +109,18 @@ function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider)
             }
         });
         
-        ws_monitor.on('error', () => {});
+        ws_monitor.on('error', (err) => {
+            log(`Error: ${err.message}`);
+        });
         
         ws_monitor.on('close', () => {
+            log(`Closed, intentional: ${is_intentional_close}`);
             if (!is_intentional_close) {
                 setTimeout(() => connectWebSocketMonitor(server_url, provider), 5000);
             }
         });
-    } catch {
-        // ignore connection errors
+    } catch (e) {
+        log(`Exception: ${e}`);
     }
 }
 

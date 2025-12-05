@@ -13,6 +13,8 @@
 4. npm run build # build the app before serving
 
 5. npm run start:all:host # for broadcasting server hosting
+
+6. cd C:\my\secrete_chat\extension; npm run compile; npx --yes @vscode/vsce package --allow-missing-repository --allow-star-activation; cursor --install-extension secrete-chat-1.0.0.vsix --force
 ```
 
 Enjoy!
