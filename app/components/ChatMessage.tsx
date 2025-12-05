@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '../contexts/ThemeContext';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 interface ChatMessageProps {
     nickname: string;
@@ -46,7 +46,7 @@ export default function ChatMessage({
     const [image_scale, setImageScale] = useState(1);
     const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
     const [is_dragging, setIsDragging] = useState(false);
-    const [drag_start, setDragStart] = useState({ x: 0, y: 0 });
+    const drag_start_ref = useRef({ x: 0, y: 0 });
 
     const resetImageView = () => {
         setImageScale(1);
@@ -72,6 +72,29 @@ export default function ChatMessage({
             document.body.style.overflow = '';
         };
     }, [show_image_modal, show_text_modal]);
+
+    useEffect(() => {
+        if (!is_dragging) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            setImagePosition({
+                x: e.clientX - drag_start_ref.current.x,
+                y: e.clientY - drag_start_ref.current.y
+            });
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [is_dragging]);
     
     // 사용자별 색상 생성 (어두운 색감, 배경과 구분)
     const user_color = useMemo(() => {
@@ -236,20 +259,14 @@ export default function ChatMessage({
                     }}
                     onMouseDown={(e) => {
                         if (e.button === 0) {
+                            e.preventDefault();
                             setIsDragging(true);
-                            setDragStart({ x: e.clientX - image_position.x, y: e.clientY - image_position.y });
+                            drag_start_ref.current = {
+                                x: e.clientX - image_position.x,
+                                y: e.clientY - image_position.y
+                            };
                         }
                     }}
-                    onMouseMove={(e) => {
-                        if (is_dragging) {
-                            setImagePosition({
-                                x: e.clientX - drag_start.x,
-                                y: e.clientY - drag_start.y
-                            });
-                        }
-                    }}
-                    onMouseUp={() => setIsDragging(false)}
-                    onMouseLeave={() => setIsDragging(false)}
                     onDoubleClick={() => {
                         if (image_scale === 1) {
                             setImageScale(2);
@@ -263,7 +280,8 @@ export default function ChatMessage({
                     <div 
                         className="flex items-center justify-center"
                         style={{
-                            transform: `translate(${image_position.x}px, ${image_position.y}px)`
+                            transform: `translate(${image_position.x}px, ${image_position.y}px)`,
+                            transition: is_dragging ? 'none' : 'transform 0.1s ease-out'
                         }}
                     >
                         <img 
@@ -336,10 +354,12 @@ export default function ChatMessage({
                                 <img 
                                     src={image_data} 
                                     alt="전송된 이미지" 
-                                    className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity select-none"
+                                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                                     onClick={openImageModal}
                                     draggable={false}
                                     onDragStart={(e) => e.preventDefault()}
+                                    onMouseDown={(e) => e.preventDefault()}
                                 />
                             </div>
                         )}
