@@ -44,9 +44,13 @@ export default function ChatMessage({
     const [show_image_modal, setShowImageModal] = useState(false);
     const [show_text_modal, setShowTextModal] = useState(false);
     const [image_scale, setImageScale] = useState(1);
+    const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
+    const [is_dragging, setIsDragging] = useState(false);
+    const [drag_start, setDragStart] = useState({ x: 0, y: 0 });
 
     const resetImageView = () => {
         setImageScale(1);
+        setImagePosition({ x: 0, y: 0 });
     };
 
     useEffect(() => {
@@ -230,32 +234,54 @@ export default function ChatMessage({
                         const delta = e.deltaY > 0 ? -0.2 : 0.2;
                         setImageScale(s => Math.max(0.5, Math.min(5, s + delta)));
                     }}
+                    onMouseDown={(e) => {
+                        if (e.button === 0) {
+                            setIsDragging(true);
+                            setDragStart({ x: e.clientX - image_position.x, y: e.clientY - image_position.y });
+                        }
+                    }}
+                    onMouseMove={(e) => {
+                        if (is_dragging) {
+                            setImagePosition({
+                                x: e.clientX - drag_start.x,
+                                y: e.clientY - drag_start.y
+                            });
+                        }
+                    }}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
                     onDoubleClick={() => {
                         if (image_scale === 1) {
                             setImageScale(2);
+                            setImagePosition({ x: 0, y: 0 });
                         } else {
                             resetImageView();
                         }
                     }}
-                    style={{ cursor: image_scale === 1 ? 'zoom-in' : 'zoom-out' }}
+                    style={{ cursor: is_dragging ? 'grabbing' : 'grab' }}
                 >
-                    <div className="flex items-center justify-center">
+                    <div 
+                        className="flex items-center justify-center"
+                        style={{
+                            transform: `translate(${image_position.x}px, ${image_position.y}px)`
+                        }}
+                    >
                         <img 
                             src={image_data} 
                             alt="전체 이미지" 
-                            className="object-contain select-none"
+                            className="object-contain select-none pointer-events-none"
                             style={{ 
                                 transform: `scale(${image_scale})`,
                                 maxWidth: '95%',
                                 maxHeight: 'calc(100vh - 60px)',
-                                transition: 'transform 0.2s ease-out'
+                                transition: is_dragging ? 'none' : 'transform 0.2s ease-out'
                             }}
                             draggable={false}
                         />
                     </div>
                 </div>
                 <div className="text-center text-white/50 text-xs py-1 bg-black/30">
-                    스크롤: 확대/축소 | 더블클릭: 2배 확대
+                    드래그: 이동 | 스크롤: 확대/축소 | 더블클릭: 2배 확대
                 </div>
             </div>
         )}
