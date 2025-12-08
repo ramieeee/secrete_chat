@@ -630,14 +630,8 @@ export default function ChatMessage({
                             </div>
                         )}
                     </div>
-                    {/* 시간(hover) + 읽음 카운트 */}
+                    {/* 읽음 카운트 + 시간(hover) */}
                     <div className="flex items-center gap-0.5 self-end">
-                        <span 
-                            className="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity" 
-                            style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '9px' }}
-                        >
-                            {formatTime(timestamp)}
-                        </span>
                         {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
                             <span 
                                 className="whitespace-nowrap"
@@ -646,6 +640,12 @@ export default function ChatMessage({
                                 {read_count}
                             </span>
                         )}
+                        <span 
+                            className="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity" 
+                            style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '9px' }}
+                        >
+                            {formatTime(timestamp)}
+                        </span>
                     </div>
                     {/* Action buttons - 직접 표시 */}
                     <div className="relative flex flex-row items-center gap-0 opacity-0 group-hover:opacity-100 transition-all">
@@ -675,11 +675,11 @@ export default function ChatMessage({
                                 🗑
                             </button>
                         )}
-                        {/* 리액션 피커 */}
+                        {/* 리액션 피커 - 2줄 */}
                         {show_reaction_picker && (
                             <div 
                                 ref={reaction_picker_ref}
-                                className="absolute z-50 rounded-lg p-1 shadow-lg flex"
+                                className="absolute z-50 rounded-lg p-1 shadow-lg flex flex-col gap-0.5"
                                 style={{ 
                                     backgroundColor: theme_colors.button_input_background,
                                     border: `1px solid ${theme_colors.info_text}`,
@@ -687,15 +687,28 @@ export default function ChatMessage({
                                     top: '0'
                                 }}
                             >
-                                {REACTION_EMOJIS.map((emoji) => (
-                                    <button
-                                        key={emoji}
-                                        onClick={() => handleReactionClick(emoji)}
-                                        className="text-sm px-0.5 rounded transition-all hover:scale-110"
-                                    >
-                                        {emoji}
-                                    </button>
-                                ))}
+                                <div className="flex">
+                                    {REACTION_EMOJIS.slice(0, 4).map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            onClick={() => handleReactionClick(emoji)}
+                                            className="text-sm px-0.5 rounded transition-all hover:scale-110"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex">
+                                    {REACTION_EMOJIS.slice(4).map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            onClick={() => handleReactionClick(emoji)}
+                                            className="text-sm px-0.5 rounded transition-all hover:scale-110"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
