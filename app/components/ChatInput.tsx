@@ -17,9 +17,10 @@ interface ChatInputProps {
     user_list: string[];
     current_nickname: string;
     reply_to_message?: ReplyMessage | null;
+    onCancelReply?: () => void;
 }
 
-export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname, reply_to_message }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname, reply_to_message, onCancelReply }: ChatInputProps) {
     const { theme_colors } = useTheme();
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
@@ -29,6 +30,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
     const file_input_ref = useRef<HTMLInputElement>(null);
     const emoji_picker_ref = useRef<HTMLDivElement>(null);
     const whisper_menu_ref = useRef<HTMLDivElement>(null);
+    const textarea_ref = useRef<HTMLTextAreaElement>(null);
     const [is_uploading, setIsUploading] = useState(false);
 
     const common_emojis = [
@@ -63,6 +65,9 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             }
             setMessage('');
             setSelectedEmoji('');
+            if (textarea_ref.current) {
+                textarea_ref.current.style.height = 'auto';
+            }
         }
     };
 
@@ -229,6 +234,16 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                                         : ''}
                         </div>
                     </div>
+                    {onCancelReply && (
+                        <button
+                            onClick={onCancelReply}
+                            className="p-1 rounded-full hover:opacity-70 transition-opacity"
+                            style={{ color: theme_colors.info_text }}
+                            title="취소"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
             )}
             <div className="flex items-center gap-2 max-w-2xl w-full">
@@ -236,6 +251,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                 <div className="flex-1 relative">
                     <div className="neumorphic-input rounded-2xl px-3 py-1.5 flex items-end gap-2">
                         <textarea
+                            ref={textarea_ref}
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             onKeyDown={handleKeyDown}

@@ -1217,6 +1217,7 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
                 user_list={user_list}
                 current_nickname={current_nickname}
                 reply_to_message={reply_to_message}
+                onCancelReply={() => setReplyToMessage(null)}
             />
             <div className="fixed bottom-2 right-2 text-sm z-40" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v{APP_VERSION}

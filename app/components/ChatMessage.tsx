@@ -665,16 +665,14 @@ export default function ChatMessage({
                         >
                             ↩
                         </button>
-                        {isOwn && (
-                            <button
-                                onClick={handleDeleteClick}
-                                className="p-0.5 hover:scale-110 transition-all"
-                                style={{ color: theme_colors.info_text, fontSize: '11px' }}
-                                title="삭제"
-                            >
-                                🗑
-                            </button>
-                        )}
+                        <button
+                            onClick={handleDeleteClick}
+                            className="p-0.5 hover:scale-110 transition-all"
+                            style={{ color: theme_colors.info_text, fontSize: '11px' }}
+                            title="삭제"
+                        >
+                            🗑
+                        </button>
                         {/* 리액션 피커 - 2줄 */}
                         {show_reaction_picker && (
                             <div 
