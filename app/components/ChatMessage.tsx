@@ -630,8 +630,8 @@ export default function ChatMessage({
                             </div>
                         )}
                     </div>
-                    {/* 읽음 카운트 + 시간(hover) */}
-                    <div className="flex items-center gap-0.5 self-end">
+                    {/* 읽음 카운트 + 시간(hover) - 순서: 상대방(읽음-시간), 내꺼(시간-읽음) */}
+                    <div className={`flex items-center gap-0.5 self-end ${isOwn ? 'flex-row-reverse' : ''}`}>
                         {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
                             <span 
                                 className="whitespace-nowrap"
