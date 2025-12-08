@@ -1119,48 +1119,26 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
                     </button>
                 )}
                 <div className="max-w-4xl mx-auto">
-                    {messages.filter((msg) => !msg.message_id || !hidden_messages.has(msg.message_id)).map((msg) => {
-                        const unique_key = msg.message_id || `${msg.type}-${msg.timestamp}-${msg.nickname}`;
-                        if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji || msg.file_data)) {
-                            return (
-                                <ChatMessage
-                                    key={unique_key}
-                                    nickname={msg.nickname}
-                                    message={msg.message || ''}
-                                    timestamp={msg.timestamp}
-                                    isOwn={msg.nickname === current_nickname}
-                                    image_data={msg.image_data}
-                                    emoji={msg.emoji}
-                                    file_data={msg.file_data}
-                                    file_name={msg.file_name}
-                                    file_size={msg.file_size}
-                                    file_type={msg.file_type}
-                                    message_id={msg.message_id}
-                                    read_count={msg.read_count}
-                                    total_users={user_list.length}
-                                    reactions={msg.reactions}
-                                    reply_to_preview={msg.reply_to_preview}
-                                    is_highlighted={highlighted_message_id === msg.message_id}
-                                    onReaction={handleReaction}
-                                    onDelete={handleDeleteMessage}
-                                    onReply={handleReply}
-                                    onScrollToMessage={handleScrollToMessage}
-                                />
-                            );
-                        } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji || msg.file_data) && msg.target_nickname) {
-                            const is_sender = msg.nickname === current_nickname;
-                            const is_receiver = msg.target_nickname.toLowerCase() === current_nickname.toLowerCase();
-                            
-                            if (is_sender || is_receiver) {
+                    {(() => {
+                        const filtered_messages = messages.filter((msg) => !msg.message_id || !hidden_messages.has(msg.message_id));
+                        return filtered_messages.map((msg, index) => {
+                            const unique_key = msg.message_id || `${msg.type}-${msg.timestamp}-${msg.nickname}`;
+                            const prev_msg = index > 0 ? filtered_messages[index - 1] : null;
+                            const is_same_user = prev_msg && 
+                                prev_msg.nickname === msg.nickname && 
+                                (prev_msg.type === 'message' || prev_msg.type === 'whisper') &&
+                                (msg.type === 'message' || msg.type === 'whisper') &&
+                                (msg.timestamp - prev_msg.timestamp < 60000);
+                            const show_nickname = !is_same_user;
+
+                            if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji || msg.file_data)) {
                                 return (
                                     <ChatMessage
                                         key={unique_key}
                                         nickname={msg.nickname}
                                         message={msg.message || ''}
                                         timestamp={msg.timestamp}
-                                        isOwn={is_sender}
-                                        isWhisper={true}
-                                        target_nickname={msg.target_nickname}
+                                        isOwn={msg.nickname === current_nickname}
                                         image_data={msg.image_data}
                                         emoji={msg.emoji}
                                         file_data={msg.file_data}
@@ -1168,16 +1146,50 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
                                         file_size={msg.file_size}
                                         file_type={msg.file_type}
                                         message_id={msg.message_id}
+                                        read_count={msg.read_count}
+                                        total_users={user_list.length}
                                         reactions={msg.reactions}
+                                        reply_to_preview={msg.reply_to_preview}
                                         is_highlighted={highlighted_message_id === msg.message_id}
+                                        show_nickname={show_nickname}
                                         onReaction={handleReaction}
                                         onDelete={handleDeleteMessage}
+                                        onReply={handleReply}
                                         onScrollToMessage={handleScrollToMessage}
                                     />
                                 );
-                            }
-                            return null;
-                        } else if (msg.type === 'join') {
+                            } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji || msg.file_data) && msg.target_nickname) {
+                                const is_sender = msg.nickname === current_nickname;
+                                const is_receiver = msg.target_nickname.toLowerCase() === current_nickname.toLowerCase();
+                                
+                                if (is_sender || is_receiver) {
+                                    return (
+                                        <ChatMessage
+                                            key={unique_key}
+                                            nickname={msg.nickname}
+                                            message={msg.message || ''}
+                                            timestamp={msg.timestamp}
+                                            isOwn={is_sender}
+                                            isWhisper={true}
+                                            target_nickname={msg.target_nickname}
+                                            image_data={msg.image_data}
+                                            emoji={msg.emoji}
+                                            file_data={msg.file_data}
+                                            file_name={msg.file_name}
+                                            file_size={msg.file_size}
+                                            file_type={msg.file_type}
+                                            message_id={msg.message_id}
+                                            reactions={msg.reactions}
+                                            is_highlighted={highlighted_message_id === msg.message_id}
+                                            show_nickname={show_nickname}
+                                            onReaction={handleReaction}
+                                            onDelete={handleDeleteMessage}
+                                            onScrollToMessage={handleScrollToMessage}
+                                        />
+                                    );
+                                }
+                                return null;
+                            } else if (msg.type === 'join') {
                             return (
                                 <SystemMessage
                                     key={unique_key}
@@ -1191,9 +1203,10 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
                                     message={`${msg.nickname}님이 퇴장했습니다.`}
                                 />
                             );
-                        }
-                        return null;
-                    })}
+                            }
+                            return null;
+                        });
+                    })()}
                     <div ref={messages_end_ref} />
                 </div>
             </div>

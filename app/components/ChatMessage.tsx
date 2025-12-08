@@ -34,6 +34,7 @@ interface ChatMessageProps {
     reactions?: Reaction;
     reply_to_preview?: ReplyPreview;
     is_highlighted?: boolean;
+    show_nickname?: boolean;
     onReaction?: (message_id: string, emoji: string) => void;
     onDelete?: (message_id: string) => void;
     onReply?: (message_id: string) => void;
@@ -61,6 +62,7 @@ export default function ChatMessage({
     reactions,
     reply_to_preview,
     is_highlighted,
+    show_nickname = true,
     onReaction,
     onDelete,
     onReply,
@@ -73,11 +75,9 @@ export default function ChatMessage({
     const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
     const [is_dragging, setIsDragging] = useState(false);
     const [show_reaction_picker, setShowReactionPicker] = useState(false);
-    const [show_action_menu, setShowActionMenu] = useState(false);
     const [hovered_reaction, setHoveredReaction] = useState<string | null>(null);
     const drag_start_ref = useRef({ x: 0, y: 0 });
     const reaction_picker_ref = useRef<HTMLDivElement>(null);
-    const action_menu_ref = useRef<HTMLDivElement>(null);
 
     const resetImageView = () => {
         setImageScale(1);
@@ -132,19 +132,16 @@ export default function ChatMessage({
             if (reaction_picker_ref.current && !reaction_picker_ref.current.contains(event.target as Node)) {
                 setShowReactionPicker(false);
             }
-            if (action_menu_ref.current && !action_menu_ref.current.contains(event.target as Node)) {
-                setShowActionMenu(false);
-            }
         };
 
-        if (show_reaction_picker || show_action_menu) {
+        if (show_reaction_picker) {
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [show_reaction_picker, show_action_menu]);
+    }, [show_reaction_picker]);
     
     // 사용자별 색상 생성 (어두운 색감, 배경과 구분)
     const user_color = useMemo(() => {
@@ -224,14 +221,12 @@ export default function ChatMessage({
         if (message_id && onDelete) {
             onDelete(message_id);
         }
-        setShowActionMenu(false);
     };
 
     const handleReplyClick = () => {
         if (message_id && onReply) {
             onReply(message_id);
         }
-        setShowActionMenu(false);
     };
 
     const formatFileSize = (bytes?: number) => {
@@ -423,18 +418,30 @@ export default function ChatMessage({
         )}
         <div 
             id={message_id ? `message-${message_id}` : undefined}
-            className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 transition-all duration-500`}
+            className={`flex ${isOwn ? 'justify-end' : 'justify-start'} transition-all duration-500`}
             style={{
                 backgroundColor: is_highlighted ? `${theme_colors.info_text}20` : 'transparent',
-                borderRadius: '16px',
-                padding: is_highlighted ? '8px' : '0',
-                margin: is_highlighted ? '-8px 0 8px 0' : '0 0 16px 0'
+                borderRadius: '12px',
+                padding: is_highlighted ? '4px' : '0',
+                marginBottom: show_nickname ? '10px' : '4px',
+                marginTop: is_highlighted ? '-4px' : '0'
             }}
         >
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
-                <div className={`flex items-end gap-2 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* 닉네임 - 메시지 위에 표시 */}
+                {!isOwn && show_nickname && (
+                    <span className="whitespace-nowrap mb-0.5 ml-1" style={{ color: user_color, fontFamily: 'var(--font-sans)', fontWeight: 500, fontSize: '10px' }}>
+                        {nickname}
+                    </span>
+                )}
+                {isOwn && show_nickname && isWhisper && target_nickname && (
+                    <span className="whitespace-nowrap mb-0.5 mr-1" style={{ color: '#f04c4d', fontFamily: 'var(--font-sans)', fontWeight: 500, fontSize: '10px' }}>
+                        to: {target_nickname}
+                    </span>
+                )}
+                <div className={`flex items-end gap-1 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
-                        className={`neumorphic-message px-4 py-2 rounded-3xl ${
+                        className={`neumorphic-message px-3 py-1.5 rounded-2xl ${
                             isOwn ? 'rounded-tr-none' : 'rounded-tl-none'
                         }`}
                         style={{ 
@@ -579,9 +586,9 @@ export default function ChatMessage({
                                 )}
                             </div>
                         )}
-                        {/* Reactions display - 메시지 버블 아래 */}
+                        {/* 리액션 - 메시지 버블 아래 */}
                         {reactions && Object.keys(reactions).length > 0 && (
-                            <div className={`flex flex-wrap gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`flex flex-wrap gap-0.5 mt-0.5 ${isOwn ? 'justify-end' : 'justify-start'}`}>
                                 {Object.entries(reactions).map(([reaction_emoji, users]) => (
                                     users.length > 0 && (
                                         <div 
@@ -592,14 +599,14 @@ export default function ChatMessage({
                                         >
                                             <button
                                                 onClick={() => handleReactionClick(reaction_emoji)}
-                                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-all hover:scale-105"
+                                                className="flex items-center px-1 py-0 rounded-full text-xs transition-all hover:scale-105"
                                                 style={{ 
                                                     backgroundColor: theme_colors.button_input_background,
                                                     border: `1px solid ${theme_colors.info_text}40`
                                                 }}
                                             >
-                                                <span className="text-sm">{reaction_emoji}</span>
-                                                <span style={{ color: theme_colors.input_text, fontSize: '11px' }}>{users.length}</span>
+                                                <span className="text-xs">{reaction_emoji}</span>
+                                                <span style={{ color: theme_colors.input_text, fontSize: '10px' }}>{users.length}</span>
                                             </button>
                                             {hovered_reaction === reaction_emoji && (
                                                 <div 
@@ -623,71 +630,56 @@ export default function ChatMessage({
                             </div>
                         )}
                     </div>
-                    {/* Action buttons */}
-                    <div className="relative flex items-center" ref={action_menu_ref}>
-                        <button
-                            onClick={() => setShowActionMenu(!show_action_menu)}
-                            className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100 transition-all"
-                            style={{ color: theme_colors.info_text }}
+                    {/* 시간(hover) + 읽음 카운트 */}
+                    <div className="flex items-center gap-0.5 self-end">
+                        <span 
+                            className="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity" 
+                            style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '9px' }}
                         >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                <circle cx="12" cy="5" r="2"/>
-                                <circle cx="12" cy="12" r="2"/>
-                                <circle cx="12" cy="19" r="2"/>
-                            </svg>
-                        </button>
-                        {show_action_menu && (
-                            <div 
-                                className="absolute z-50 rounded-xl p-1 shadow-lg min-w-[120px]"
-                                style={{ 
-                                    backgroundColor: theme_colors.button_input_background,
-                                    border: `1px solid ${theme_colors.info_text}`,
-                                    [isOwn ? 'right' : 'left']: '100%',
-                                    top: '0'
-                                }}
+                            {formatTime(timestamp)}
+                        </span>
+                        {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
+                            <span 
+                                className="whitespace-nowrap"
+                                style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '9px' }}
                             >
-                                <button
-                                    onClick={() => setShowReactionPicker(true)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-opacity-50"
-                                    style={{ color: theme_colors.input_text }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                    <span>😀</span>
-                                    <span>리액션</span>
-                                </button>
-                                <button
-                                    onClick={handleReplyClick}
-                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
-                                    style={{ color: theme_colors.input_text }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                                    </svg>
-                                    <span>답글</span>
-                                </button>
-                                {isOwn && (
-                                    <button
-                                        onClick={handleDeleteClick}
-                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
-                                        style={{ color: theme_colors.input_text }}
-                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
-                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                        </svg>
-                                        <span>삭제</span>
-                                    </button>
-                                )}
-                            </div>
+                                {read_count}
+                            </span>
                         )}
+                    </div>
+                    {/* Action buttons - 직접 표시 */}
+                    <div className="relative flex flex-row items-center gap-0 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                            onClick={() => setShowReactionPicker(!show_reaction_picker)}
+                            className="p-0.5 hover:scale-110 transition-all"
+                            style={{ color: theme_colors.info_text, fontSize: '11px' }}
+                            title="리액션"
+                        >
+                            😀
+                        </button>
+                        <button
+                            onClick={handleReplyClick}
+                            className="p-0.5 hover:scale-110 transition-all"
+                            style={{ color: theme_colors.info_text, fontSize: '11px' }}
+                            title="답글"
+                        >
+                            ↩
+                        </button>
+                        {isOwn && (
+                            <button
+                                onClick={handleDeleteClick}
+                                className="p-0.5 hover:scale-110 transition-all"
+                                style={{ color: theme_colors.info_text, fontSize: '11px' }}
+                                title="삭제"
+                            >
+                                🗑
+                            </button>
+                        )}
+                        {/* 리액션 피커 */}
                         {show_reaction_picker && (
                             <div 
                                 ref={reaction_picker_ref}
-                                className="absolute z-50 rounded-xl p-2 shadow-lg flex gap-1"
+                                className="absolute z-50 rounded-lg p-1 shadow-lg flex"
                                 style={{ 
                                     backgroundColor: theme_colors.button_input_background,
                                     border: `1px solid ${theme_colors.info_text}`,
@@ -699,7 +691,7 @@ export default function ChatMessage({
                                     <button
                                         key={emoji}
                                         onClick={() => handleReactionClick(emoji)}
-                                        className="text-lg p-1 rounded-full transition-all hover:scale-125"
+                                        className="text-sm px-0.5 rounded transition-all hover:scale-110"
                                     >
                                         {emoji}
                                     </button>
@@ -707,46 +699,6 @@ export default function ChatMessage({
                             </div>
                         )}
                     </div>
-                    {!isOwn && (
-                        <div className="flex flex-col items-start gap-0.5 flex-shrink-0">
-                            <span className="text-xs whitespace-nowrap" style={{ color: user_color, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                &gt; {nickname}
-                            </span>
-                            <div className="flex flex-row items-center gap-1">
-                                <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                    {formatTime(timestamp)}
-                                </span>
-                                <div className="flex flex-row items-center" style={{ minWidth: '6px' }}>
-                                {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                        {read_count}
-                                    </span>
-                                )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {isOwn && (
-                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                            {isWhisper && target_nickname && (
-                                <span className="text-xs whitespace-nowrap" style={{ color: '#f04c4d', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                    to: {target_nickname}
-                                </span>
-                            )}
-                            <div className="flex flex-row items-center gap-1">
-                                <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                    {formatTime(timestamp)}
-                                </span>
-                                <div className="flex flex-row items-center" style={{ minWidth: '6px' }}>
-                                {read_count !== undefined && total_users !== undefined && total_users > 1 && read_count > 0 && (
-                                    <span className="text-xs whitespace-nowrap" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                                        {read_count}
-                                    </span>
-                                )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

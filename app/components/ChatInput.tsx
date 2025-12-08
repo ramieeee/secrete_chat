@@ -240,7 +240,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                             onChange={(e) => setMessage(e.target.value)}
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
-                            placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요... (Shift+Enter로 개행)"}
+                            placeholder={selected_target ? `${selected_target}에게 귓속말...` : ""}
                             disabled={disabled}
                             className="flex-1 bg-transparent focus:outline-none disabled:cursor-not-allowed text-xs w-full resize-none"
                             style={{ 
