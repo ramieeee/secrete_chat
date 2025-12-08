@@ -423,8 +423,8 @@ export default function ChatMessage({
                 backgroundColor: is_highlighted ? `${theme_colors.info_text}20` : 'transparent',
                 borderRadius: '12px',
                 padding: is_highlighted ? '4px' : '0',
-                marginBottom: show_nickname ? '10px' : '4px',
-                marginTop: is_highlighted ? '-4px' : '0'
+                marginBottom: '4px',
+                marginTop: (show_nickname && !isOwn) ? '8px' : '0'
             }}
         >
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
