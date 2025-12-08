@@ -136,7 +136,7 @@ export default function ChatMessage({
     const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
         e.preventDefault();
         e.stopPropagation();
-        window.open(url, '_blank', 'noopener,noreferrer');
+        window.parent.postMessage({ type: 'openUrl', url: url }, '*');
     };
     
     const renderMessageWithLinks = (text: string) => {
