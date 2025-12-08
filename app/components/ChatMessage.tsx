@@ -3,6 +3,18 @@
 import { useTheme } from '../contexts/ThemeContext';
 import { useMemo, useState, useEffect, useRef } from 'react';
 
+interface Reaction {
+    [emoji: string]: string[];
+}
+
+interface ReplyPreview {
+    nickname: string;
+    message: string;
+    image_data?: boolean;
+    file_name?: string;
+    message_id?: string;
+}
+
 interface ChatMessageProps {
     nickname: string;
     message: string;
@@ -10,7 +22,6 @@ interface ChatMessageProps {
     isOwn: boolean;
     isWhisper?: boolean;
     target_nickname?: string;
-    current_nickname?: string;
     image_data?: string;
     emoji?: string;
     file_data?: string;
@@ -20,7 +31,16 @@ interface ChatMessageProps {
     message_id?: string;
     read_count?: number;
     total_users?: number;
+    reactions?: Reaction;
+    reply_to_preview?: ReplyPreview;
+    is_highlighted?: boolean;
+    onReaction?: (message_id: string, emoji: string) => void;
+    onDelete?: (message_id: string) => void;
+    onReply?: (message_id: string) => void;
+    onScrollToMessage?: (message_id: string) => void;
 }
+
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👎'];
 
 export default function ChatMessage({ 
     nickname, 
@@ -29,7 +49,6 @@ export default function ChatMessage({
     isOwn,
     isWhisper = false,
     target_nickname,
-    current_nickname,
     image_data,
     emoji,
     file_data,
@@ -38,7 +57,14 @@ export default function ChatMessage({
     file_type,
     message_id,
     read_count,
-    total_users
+    total_users,
+    reactions,
+    reply_to_preview,
+    is_highlighted,
+    onReaction,
+    onDelete,
+    onReply,
+    onScrollToMessage
 }: ChatMessageProps) {
     const { theme_colors } = useTheme();
     const [show_image_modal, setShowImageModal] = useState(false);
@@ -46,7 +72,12 @@ export default function ChatMessage({
     const [image_scale, setImageScale] = useState(1);
     const [image_position, setImagePosition] = useState({ x: 0, y: 0 });
     const [is_dragging, setIsDragging] = useState(false);
+    const [show_reaction_picker, setShowReactionPicker] = useState(false);
+    const [show_action_menu, setShowActionMenu] = useState(false);
+    const [hovered_reaction, setHoveredReaction] = useState<string | null>(null);
     const drag_start_ref = useRef({ x: 0, y: 0 });
+    const reaction_picker_ref = useRef<HTMLDivElement>(null);
+    const action_menu_ref = useRef<HTMLDivElement>(null);
 
     const resetImageView = () => {
         setImageScale(1);
@@ -95,6 +126,25 @@ export default function ChatMessage({
             window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [is_dragging]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (reaction_picker_ref.current && !reaction_picker_ref.current.contains(event.target as Node)) {
+                setShowReactionPicker(false);
+            }
+            if (action_menu_ref.current && !action_menu_ref.current.contains(event.target as Node)) {
+                setShowActionMenu(false);
+            }
+        };
+
+        if (show_reaction_picker || show_action_menu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [show_reaction_picker, show_action_menu]);
     
     // 사용자별 색상 생성 (어두운 색감, 배경과 구분)
     const user_color = useMemo(() => {
@@ -163,6 +213,27 @@ export default function ChatMessage({
         });
     };
 
+    const handleReactionClick = (emoji: string) => {
+        if (message_id && onReaction) {
+            onReaction(message_id, emoji);
+        }
+        setShowReactionPicker(false);
+    };
+
+    const handleDeleteClick = () => {
+        if (message_id && onDelete) {
+            onDelete(message_id);
+        }
+        setShowActionMenu(false);
+    };
+
+    const handleReplyClick = () => {
+        if (message_id && onReply) {
+            onReply(message_id);
+        }
+        setShowActionMenu(false);
+    };
+
     const formatFileSize = (bytes?: number) => {
         if (!bytes) return '';
         if (bytes < 1024) return `${bytes} B`;
@@ -191,8 +262,7 @@ export default function ChatMessage({
             setTimeout(() => {
                 URL.revokeObjectURL(url);
             }, 100);
-        } catch (error) {
-            console.error('파일 다운로드 오류:', error);
+        } catch {
             alert('파일 다운로드에 실패했습니다.');
         }
     };
@@ -351,9 +421,18 @@ export default function ChatMessage({
                 </div>
             </div>
         )}
-        <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
+        <div 
+            id={message_id ? `message-${message_id}` : undefined}
+            className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 transition-all duration-500`}
+            style={{
+                backgroundColor: is_highlighted ? `${theme_colors.info_text}20` : 'transparent',
+                borderRadius: '16px',
+                padding: is_highlighted ? '8px' : '0',
+                margin: is_highlighted ? '-8px 0 8px 0' : '0 0 16px 0'
+            }}
+        >
             <div className={`flex flex-col ${isOwn ? 'max-w-[85%] items-end' : 'max-w-[92%] items-start'}`}>
-                <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-end gap-2 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div
                         className={`neumorphic-message px-4 py-2 rounded-3xl ${
                             isOwn ? 'rounded-tr-none' : 'rounded-tl-none'
@@ -366,6 +445,44 @@ export default function ChatMessage({
                             fontWeight: 400 
                         }}
                     >
+                        {reply_to_preview && (
+                            <button 
+                                onClick={() => {
+                                    if (reply_to_preview.message_id && onScrollToMessage) {
+                                        onScrollToMessage(reply_to_preview.message_id);
+                                    }
+                                }}
+                                className="mb-2 px-3 py-2 rounded-xl text-left w-full hover:opacity-90 transition-all cursor-pointer flex items-start gap-2"
+                                style={{ 
+                                    backgroundColor: `${theme_colors.info_text}15`,
+                                    border: `1px solid ${theme_colors.info_text}30`
+                                }}
+                            >
+                                <div 
+                                    className="w-0.5 h-full min-h-[32px] rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: theme_colors.info_text }}
+                                />
+                                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                    <span className="text-xs font-medium" style={{ color: theme_colors.info_text }}>
+                                        ↩ {reply_to_preview.nickname}
+                                    </span>
+                                    <span 
+                                        className="text-xs truncate"
+                                        style={{ color: theme_colors.input_text, opacity: 0.8 }}
+                                    >
+                                        {reply_to_preview.message 
+                                            ? (reply_to_preview.message.length > 40 
+                                                ? reply_to_preview.message.substring(0, 40) + '...' 
+                                                : reply_to_preview.message)
+                                            : reply_to_preview.image_data 
+                                                ? '📷 이미지' 
+                                                : reply_to_preview.file_name 
+                                                    ? `📎 ${reply_to_preview.file_name}` 
+                                                    : ''}
+                                    </span>
+                                </div>
+                            </button>
+                        )}
                         {image_data && (
                             <div className="mb-1">
                                 <img 
@@ -460,6 +577,133 @@ export default function ChatMessage({
                                         {renderMessageWithLinks(message)}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {/* Reactions display - 메시지 버블 아래 */}
+                        {reactions && Object.keys(reactions).length > 0 && (
+                            <div className={`flex flex-wrap gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                {Object.entries(reactions).map(([reaction_emoji, users]) => (
+                                    users.length > 0 && (
+                                        <div 
+                                            key={reaction_emoji}
+                                            className="relative"
+                                            onMouseEnter={() => setHoveredReaction(reaction_emoji)}
+                                            onMouseLeave={() => setHoveredReaction(null)}
+                                        >
+                                            <button
+                                                onClick={() => handleReactionClick(reaction_emoji)}
+                                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-all hover:scale-105"
+                                                style={{ 
+                                                    backgroundColor: theme_colors.button_input_background,
+                                                    border: `1px solid ${theme_colors.info_text}40`
+                                                }}
+                                            >
+                                                <span className="text-sm">{reaction_emoji}</span>
+                                                <span style={{ color: theme_colors.input_text, fontSize: '11px' }}>{users.length}</span>
+                                            </button>
+                                            {hovered_reaction === reaction_emoji && (
+                                                <div 
+                                                    className="absolute z-[60] px-2 py-1 rounded-lg shadow-lg text-xs whitespace-nowrap"
+                                                    style={{ 
+                                                        backgroundColor: theme_colors.button_input_background,
+                                                        border: `1px solid ${theme_colors.info_text}`,
+                                                        color: theme_colors.input_text,
+                                                        bottom: '100%',
+                                                        left: '50%',
+                                                        transform: 'translateX(-50%)',
+                                                        marginBottom: '4px'
+                                                    }}
+                                                >
+                                                    {users.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    {/* Action buttons */}
+                    <div className="relative flex items-center" ref={action_menu_ref}>
+                        <button
+                            onClick={() => setShowActionMenu(!show_action_menu)}
+                            className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:opacity-100 transition-all"
+                            style={{ color: theme_colors.info_text }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="19" r="2"/>
+                            </svg>
+                        </button>
+                        {show_action_menu && (
+                            <div 
+                                className="absolute z-50 rounded-xl p-1 shadow-lg min-w-[120px]"
+                                style={{ 
+                                    backgroundColor: theme_colors.button_input_background,
+                                    border: `1px solid ${theme_colors.info_text}`,
+                                    [isOwn ? 'right' : 'left']: '100%',
+                                    top: '0'
+                                }}
+                            >
+                                <button
+                                    onClick={() => setShowReactionPicker(true)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-opacity-50"
+                                    style={{ color: theme_colors.input_text }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    <span>😀</span>
+                                    <span>리액션</span>
+                                </button>
+                                <button
+                                    onClick={handleReplyClick}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+                                    style={{ color: theme_colors.input_text }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                    <span>답글</span>
+                                </button>
+                                {isOwn && (
+                                    <button
+                                        onClick={handleDeleteClick}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+                                        style={{ color: theme_colors.input_text }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                        <span>삭제</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {show_reaction_picker && (
+                            <div 
+                                ref={reaction_picker_ref}
+                                className="absolute z-50 rounded-xl p-2 shadow-lg flex gap-1"
+                                style={{ 
+                                    backgroundColor: theme_colors.button_input_background,
+                                    border: `1px solid ${theme_colors.info_text}`,
+                                    [isOwn ? 'right' : 'left']: '100%',
+                                    top: '0'
+                                }}
+                            >
+                                {REACTION_EMOJIS.map((emoji) => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => handleReactionClick(emoji)}
+                                        className="text-lg p-1 rounded-full transition-all hover:scale-125"
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
                             </div>
                         )}
                     </div>

@@ -1,16 +1,25 @@
 'use client';
 
-import { useState, KeyboardEvent, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+
+interface ReplyMessage {
+    message_id?: string;
+    nickname: string;
+    message?: string;
+    image_data?: string;
+    file_name?: string;
+}
 
 interface ChatInputProps {
     onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string, file_data?: string, file_name?: string, file_size?: number, file_type?: string) => void;
     disabled?: boolean;
     user_list: string[];
     current_nickname: string;
+    reply_to_message?: ReplyMessage | null;
 }
 
-export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname, reply_to_message }: ChatInputProps) {
     const { theme_colors } = useTheme();
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
@@ -57,7 +66,7 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
         }
     };
 
-    const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const items = e.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
@@ -110,26 +119,19 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             };
 
             reader.onerror = () => {
-                console.error('이미지 읽기 오류');
                 alert('이미지를 읽는데 실패했습니다.');
                 setIsUploading(false);
             };
 
             reader.readAsDataURL(file);
-        } catch (error) {
-            console.error('이미지 처리 오류:', error);
+        } catch {
             alert('이미지 처리에 실패했습니다.');
             setIsUploading(false);
         }
     };
 
     const uploadFile = async (file: File) => {
-        console.log('ChatInput: 파일 업로드 시작:', file.name, file.size, file.type);
-        
-        if (disabled || is_uploading) {
-            console.warn('ChatInput: 업로드 불가 (disabled:', disabled, ', is_uploading:', is_uploading, ')');
-            return;
-        }
+        if (disabled || is_uploading) return;
 
         const max_size = 100 * 1024 * 1024;
         if (file.size > max_size) {
@@ -143,40 +145,27 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             
             reader.onload = (e) => {
                 const result = e.target?.result as string;
-                console.log('ChatInput: 파일 읽기 완료, 데이터 크기:', result.length);
-                
                 if (selected_target) {
-                    console.log('ChatInput: 귓속말로 파일 전송:', selected_target);
                     onSendMessage('', selected_target, undefined, undefined, result, file.name, file.size, file.type);
                 } else {
-                    console.log('ChatInput: 일반 메시지로 파일 전송');
                     onSendMessage('', undefined, undefined, undefined, result, file.name, file.size, file.type);
                 }
                 setIsUploading(false);
             };
 
-            reader.onerror = (error) => {
-                console.error('ChatInput: 파일 읽기 오류:', error);
+            reader.onerror = () => {
                 alert('파일을 읽는데 실패했습니다.');
                 setIsUploading(false);
             };
 
-            reader.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = (e.loaded / e.total) * 100;
-                    console.log(`ChatInput: 파일 읽기 진행: ${percent.toFixed(1)}%`);
-                }
-            };
-
             reader.readAsDataURL(file);
-        } catch (error) {
-            console.error('ChatInput: 파일 처리 오류:', error);
+        } catch {
             alert('파일 처리에 실패했습니다.');
             setIsUploading(false);
         }
     };
 
-    const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -210,26 +199,64 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
     const has_content = message.trim().length > 0 || selected_emoji.length > 0;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 flex justify-center z-50" style={{ backgroundColor: 'transparent' }}>
+        <div className="fixed bottom-0 left-0 right-0 p-4 pb-6 flex flex-col items-center z-50" style={{ backgroundColor: 'transparent' }}>
+            {/* Reply Preview */}
+            {reply_to_message && (
+                <div 
+                    className="flex items-center gap-2 max-w-2xl w-full mb-2 px-3 py-2 rounded-xl"
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background,
+                        border: `1px solid ${theme_colors.info_text}`
+                    }}
+                >
+                    <div className="w-1 h-8 rounded-full" style={{ backgroundColor: theme_colors.info_text }} />
+                    <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium" style={{ color: theme_colors.info_text }}>
+                            ↩ {reply_to_message.nickname}
+                        </div>
+                        <div 
+                            className="text-xs truncate" 
+                            style={{ color: theme_colors.input_text, opacity: 0.7 }}
+                        >
+                            {reply_to_message.message 
+                                ? (reply_to_message.message.length > 50 
+                                    ? reply_to_message.message.substring(0, 50) + '...' 
+                                    : reply_to_message.message)
+                                : reply_to_message.image_data 
+                                    ? '📷 이미지' 
+                                    : reply_to_message.file_name 
+                                        ? `📎 ${reply_to_message.file_name}` 
+                                        : ''}
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="flex items-center gap-2 max-w-2xl w-full">
                 {/* Input 박스 */}
                 <div className="flex-1 relative">
-                    <div className="neumorphic-input rounded-full px-3 py-1.5 flex items-center gap-2">
-                        <input
-                            type="text"
+                    <div className="neumorphic-input rounded-2xl px-3 py-1.5 flex items-end gap-2">
+                        <textarea
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
-                            onKeyPress={handleKeyPress}
+                            onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
-                            placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요..."}
+                            placeholder={selected_target ? `${selected_target}에게 귓속말...` : "메시지를 입력하세요... (Shift+Enter로 개행)"}
                             disabled={disabled}
-                            className="flex-1 bg-transparent focus:outline-none disabled:cursor-not-allowed text-xs w-full"
+                            className="flex-1 bg-transparent focus:outline-none disabled:cursor-not-allowed text-xs w-full resize-none"
                             style={{ 
                                 color: theme_colors.input_text,
                                 fontFamily: 'var(--font-sans)', 
-                                fontWeight: 400 
+                                fontWeight: 400,
+                                minHeight: '20px',
+                                maxHeight: '100px'
                             }}
-                            maxLength={500}
+                            maxLength={2000}
+                            rows={1}
+                            onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement;
+                                target.style.height = 'auto';
+                                target.style.height = Math.min(target.scrollHeight, 100) + 'px';
+                            }}
                         />
                         {/* 종이비행기 아이콘 - input 박스 안 오른쪽 */}
                         <button

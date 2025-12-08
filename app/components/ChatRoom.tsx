@@ -8,8 +8,20 @@ import UserListChip from './UserListChip';
 import { APP_VERSION } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 
+interface Reaction {
+    [emoji: string]: string[];
+}
+
+interface ReplyPreview {
+    nickname: string;
+    message: string;
+    image_data?: boolean;
+    file_name?: string;
+    message_id?: string;
+}
+
 interface Message {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -25,6 +37,12 @@ interface Message {
     message_id?: string;
     read_count?: number;
     total_users?: number;
+    reactions?: Reaction;
+    reply_to?: string;
+    reply_to_preview?: ReplyPreview;
+    delete_time?: number;
+    old_nickname?: string;
+    new_nickname?: string;
 }
 
 interface ChatRoomProps {
@@ -33,7 +51,7 @@ interface ChatRoomProps {
     onDisconnect: (errorMessage?: string) => void;
 }
 
-export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoomProps) {
+export default function ChatRoom({ nickname: initial_nickname, server_url, onDisconnect }: ChatRoomProps) {
     const { theme_colors } = useTheme();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isConnected, setIsConnected] = useState(false);
@@ -43,6 +61,15 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
     const [show_scroll_button, setShowScrollButton] = useState(false);
     const [is_drag_over, setIsDragOver] = useState(false);
     const [drag_counter, setDragCounter] = useState(0);
+    const [hidden_messages, setHiddenMessages] = useState<Set<string>>(new Set());
+    const [delete_time, setDeleteTime] = useState(5);
+    const [show_settings_menu, setShowSettingsMenu] = useState(false);
+    const [reply_to_message, setReplyToMessage] = useState<Message | null>(null);
+    const [is_editing_nickname, setIsEditingNickname] = useState(false);
+    const [current_nickname, setCurrentNickname] = useState(initial_nickname);
+    const [new_nickname, setNewNickname] = useState(initial_nickname);
+    const [toast_message, setToastMessage] = useState<string | null>(null);
+    const [highlighted_message_id, setHighlightedMessageId] = useState<string | null>(null);
     const ws_ref = useRef<WebSocket | null>(null);
     const messages_end_ref = useRef<HTMLDivElement>(null);
     const messages_container_ref = useRef<HTMLDivElement>(null);
@@ -54,10 +81,39 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
     const is_visible_ref = useRef(true);
     const messages_ref = useRef<Message[]>([]);
     const title_blink_interval_ref = useRef<NodeJS.Timeout | null>(null);
+    const settings_menu_ref = useRef<HTMLDivElement>(null);
+    const toast_timeout_ref = useRef<NodeJS.Timeout | null>(null);
+
+    const showToast = (message: string, duration: number = 3000) => {
+        if (toast_timeout_ref.current) {
+            clearTimeout(toast_timeout_ref.current);
+        }
+        setToastMessage(message);
+        toast_timeout_ref.current = setTimeout(() => {
+            setToastMessage(null);
+        }, duration);
+    };
     
     useEffect(() => {
         onDisconnect_ref.current = onDisconnect;
     }, [onDisconnect]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (settings_menu_ref.current && !settings_menu_ref.current.contains(event.target as Node)) {
+                setShowSettingsMenu(false);
+                setIsEditingNickname(false);
+            }
+        };
+
+        if (show_settings_menu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [show_settings_menu]);
 
     useEffect(() => {
         if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
@@ -88,7 +144,6 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                 ws_ref.current = ws;
 
                 ws.onopen = () => {
-                    console.log('웹소켓 연결됨');
                     if (is_mounted && ws && ws.readyState === WebSocket.OPEN) {
                         setIsConnected(true);
                         setConnectionError(null);
@@ -100,7 +155,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                         }
                         ws.send(JSON.stringify({
                             type: 'join',
-                            nickname: nickname
+                            nickname: current_nickname
                         }));
                     }
                 };
@@ -109,18 +164,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                     try {
                         const message: Message = JSON.parse(event.data);
                         
-                        if (message.type === 'message' || message.type === 'whisper') {
-                            console.log('[수신] 메시지 타입:', message.type, '닉네임:', message.nickname);
-                            if (message.file_data) {
-                                console.log('[수신] 파일 데이터 포함:', message.file_name, message.file_size, 'bytes');
-                            }
-                            if (message.image_data) {
-                                console.log('[수신] 이미지 데이터 포함');
-                            }
-                        }
-                        
                         if (message.type === 'join_rejected') {
-                            console.log('입장 거부:', message.reason);
                             if (is_mounted && ws) {
                                 ws.close();
                                 onDisconnect_ref.current(message.reason || '입장이 거부되었습니다.');
@@ -131,10 +175,13 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                             if (is_mounted) {
                                 setUserList(message.user_list);
                                 setIsJoined(true);
+                                if (message.delete_time) {
+                                    setDeleteTime(message.delete_time);
+                                }
                             }
                             return;
                         }
-                        if (message.type === 'join' && message.nickname === nickname) {
+                        if (message.type === 'join' && message.nickname === current_nickname) {
                             if (is_mounted) {
                                 setIsJoined(true);
                             }
@@ -148,6 +195,54 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                                         }
                                         return msg;
                                     });
+                                    messages_ref.current = updated;
+                                    return updated;
+                                });
+                            }
+                            return;
+                        }
+                        if (message.type === 'reaction_update' && message.message_id) {
+                            if (is_mounted) {
+                                setMessages((prev) => {
+                                    const updated = prev.map((msg) => {
+                                        if (msg.message_id === message.message_id) {
+                                            return { ...msg, reactions: message.reactions };
+                                        }
+                                        return msg;
+                                    });
+                                    messages_ref.current = updated;
+                                    return updated;
+                                });
+                            }
+                            return;
+                        }
+                        if (message.type === 'delete_time_update' && message.delete_time) {
+                            if (is_mounted) {
+                                setDeleteTime(message.delete_time);
+                            }
+                            return;
+                        }
+                        if (message.type === 'nickname_change' && message.reason) {
+                            if (is_mounted) {
+                                showToast(message.reason);
+                            }
+                            return;
+                        }
+                        if (message.type === 'nickname_changed' && message.old_nickname && message.new_nickname) {
+                            if (is_mounted) {
+                                if (message.old_nickname === current_nickname) {
+                                    setCurrentNickname(message.new_nickname);
+                                    setNewNickname(message.new_nickname);
+                                }
+                                setMessages((prev) => {
+                                    const system_message: Message = {
+                                        type: 'join',
+                                        nickname: '',
+                                        message: `${message.old_nickname}님이 ${message.new_nickname}(으)로 이름을 변경했습니다.`,
+                                        timestamp: message.timestamp,
+                                        message_id: `nickname-change-${message.timestamp}`
+                                    };
+                                    const updated = [...prev, system_message];
                                     messages_ref.current = updated;
                                     return updated;
                                 });
@@ -169,13 +264,11 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                                 message_id: message.message_id || `${message.type}-${message.timestamp}-${message.nickname}-${Date.now()}`
                             };
                             
-                            console.log('[수신] 메시지 추가:', new_message.type, new_message.nickname, new_message.file_data ? '파일 포함' : '', new_message.image_data ? '이미지 포함' : '');
-                            
                             setMessages((prev) => {
                                 const updated = [...prev, new_message];
                                 messages_ref.current = updated;
                                 
-                                if (is_visible_ref.current && new_message.nickname !== nickname && new_message.message_id) {
+                                if (is_visible_ref.current && new_message.nickname !== current_nickname && new_message.message_id) {
                                     setTimeout(() => {
                                         if (!read_messages_ref.current.has(new_message.message_id)) {
                                             read_messages_ref.current.add(new_message.message_id);
@@ -192,13 +285,12 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                                 return updated;
                             });
                         }
-                    } catch (error) {
-                        console.error('메시지 파싱 오류:', error);
+                    } catch {
+                        // ignore parse error
                     }
                 };
 
-                ws.onerror = (error) => {
-                    console.error('웹소켓 오류:', error);
+                ws.onerror = () => {
                     if (is_mounted) {
                         setIsConnected(false);
                         setConnectionError('웹소켓 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.');
@@ -206,7 +298,6 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                 };
 
                 ws.onclose = (event) => {
-                    console.log('웹소켓 연결 종료', event.code, event.reason);
                     if (is_mounted) {
                         setIsConnected(false);
                         setIsJoined(false);
@@ -242,8 +333,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                         }
                     }
                 };
-            } catch (error) {
-                console.error('웹소켓 생성 오류:', error);
+            } catch {
                 if (is_mounted) {
                     setIsConnected(false);
                     setConnectionError('서버에 연결할 수 없습니다. 재연결 시도 중...');
@@ -294,7 +384,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             
             if (is_visible_ref.current && ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
                 messages_ref.current.forEach((msg) => {
-                    if (msg.message_id && !read_messages_ref.current.has(msg.message_id) && msg.nickname !== nickname) {
+                    if (msg.message_id && !read_messages_ref.current.has(msg.message_id) && msg.nickname !== current_nickname) {
                         read_messages_ref.current.add(msg.message_id);
                         ws_ref.current?.send(JSON.stringify({
                             type: 'read',
@@ -309,7 +399,6 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
 
         const handle_extension_message = (e: MessageEvent) => {
             if (e.data?.type === 'visibilityChange') {
-                console.log('[ChatRoom] Extension visibility changed:', e.data.visible);
                 is_visible_ref.current = e.data.visible;
                 if (e.data.visible) {
                     handle_visibility_change();
@@ -335,7 +424,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             }
             is_reconnecting_ref.current = false;
         };
-    }, [nickname]);
+    }, [current_nickname]);
 
     useEffect(() => {
         const container = messages_container_ref.current;
@@ -423,11 +512,11 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             }
             clearTimeout(timeout_id);
         };
-    }, [messages, nickname]);
+    }, [messages, current_nickname]);
 
     useEffect(() => {
         const last_message = messages[messages.length - 1];
-        if (last_message && last_message.type === 'message' && last_message.nickname !== nickname) {
+        if (last_message && last_message.type === 'message' && last_message.nickname !== current_nickname) {
             if (title_blink_interval_ref.current) {
                 clearInterval(title_blink_interval_ref.current);
                 title_blink_interval_ref.current = null;
@@ -526,18 +615,18 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                 };
             }
         }
-    }, [messages, nickname]);
+    }, [messages, current_nickname]);
 
     useEffect(() => {
         const cleanup_old_messages = () => {
             setMessages((prev) => {
                 const now = Date.now();
-                const five_minutes = 5 * 60 * 1000;
+                const delete_time_ms = delete_time * 60 * 1000;
                 
                 const updated = prev.filter((msg) => {
                     if (msg.type === 'message' || msg.type === 'whisper') {
                         const message_age = now - msg.timestamp;
-                        if (message_age >= five_minutes) {
+                        if (message_age >= delete_time_ms) {
                             if (msg.image_data) {
                                 msg.image_data = undefined;
                             }
@@ -557,11 +646,22 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
         const interval = setInterval(cleanup_old_messages, 10000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [delete_time]);
 
     const handleSendMessage = (message: string, target_nickname?: string, image_data?: string, emoji?: string, file_data?: string, file_name?: string, file_size?: number, file_type?: string) => {
         if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN && isJoined) {
             try {
+                const reply_to_data = reply_to_message ? {
+                    reply_to: reply_to_message.message_id,
+                    reply_to_preview: {
+                        nickname: reply_to_message.nickname,
+                        message: reply_to_message.message || '',
+                        image_data: !!reply_to_message.image_data,
+                        file_name: reply_to_message.file_name,
+                        message_id: reply_to_message.message_id
+                    }
+                } : {};
+
                 const message_data = target_nickname ? {
                     type: 'whisper',
                     message: message,
@@ -571,7 +671,8 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                     file_data: file_data,
                     file_name: file_name,
                     file_size: file_size,
-                    file_type: file_type
+                    file_type: file_type,
+                    ...reply_to_data
                 } : {
                     type: 'message',
                     message: message,
@@ -580,31 +681,29 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                     file_data: file_data,
                     file_name: file_name,
                     file_size: file_size,
-                    file_type: file_type
+                    file_type: file_type,
+                    ...reply_to_data
                 };
+
+                setReplyToMessage(null);
 
                 const message_string = JSON.stringify(message_data);
                 const message_size = new Blob([message_string]).size;
-                console.log('전송 메시지 크기:', message_size, 'bytes', `(${(message_size / 1024 / 1024).toFixed(2)} MB)`);
                 
                 if (message_size > 16 * 1024 * 1024) {
-                    console.warn('메시지 크기가 너무 큼 (16MB 초과)');
-                    alert('파일이 너무 큽니다. 더 작은 파일을 선택해주세요.');
+                    showToast('파일이 너무 큽니다. 더 작은 파일을 선택해주세요.');
                     return;
                 }
 
                 ws_ref.current.send(message_string);
-                console.log('메시지 전송 완료:', target_nickname ? `귓속말 -> ${target_nickname}` : '일반 메시지', image_data ? '(이미지 포함)' : '', file_data ? `(파일 포함: ${file_name}, ${file_size} bytes)` : '', emoji ? '(이모티콘 포함)' : '');
-            } catch (error) {
-                console.error('메시지 전송 실패:', error);
-                alert('메시지 전송에 실패했습니다: ' + (error instanceof Error ? error.message : String(error)));
+            } catch {
+                showToast('메시지 전송에 실패했습니다.');
                 setConnectionError('메시지 전송에 실패했습니다.');
             }
         } else {
             if (!isJoined) {
                 setConnectionError('입장 중입니다. 잠시 후 다시 시도해주세요.');
             } else {
-                console.error('웹소켓이 연결되지 않았습니다. 상태:', ws_ref.current?.readyState);
                 setConnectionError('웹소켓이 연결되지 않았습니다.');
             }
         }
@@ -615,6 +714,63 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             ws_ref.current.close();
         }
         onDisconnect();
+    };
+
+    const handleReaction = (message_id: string, emoji: string) => {
+        if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+            ws_ref.current.send(JSON.stringify({
+                type: 'reaction',
+                message_id: message_id,
+                reaction_emoji: emoji
+            }));
+        }
+    };
+
+    const handleDeleteMessage = (message_id: string) => {
+        setHiddenMessages((prev) => new Set(prev).add(message_id));
+    };
+
+    const handleClearAllMessages = () => {
+        const all_ids = messages
+            .filter((msg) => msg.message_id)
+            .map((msg) => msg.message_id as string);
+        setHiddenMessages(new Set(all_ids));
+    };
+
+    const handleReply = (message_id: string) => {
+        const target_message = messages.find((msg) => msg.message_id === message_id);
+        if (target_message) {
+            setReplyToMessage(target_message);
+        }
+    };
+
+    const handleScrollToMessage = (message_id: string) => {
+        const element = document.getElementById(`message-${message_id}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedMessageId(message_id);
+            setTimeout(() => setHighlightedMessageId(null), 2000);
+        }
+    };
+
+    const handleDeleteTimeChange = (new_time: number) => {
+        if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+            ws_ref.current.send(JSON.stringify({
+                type: 'delete_time_update',
+                delete_time: new_time
+            }));
+        }
+    };
+
+    const handleNicknameChange = () => {
+        const trimmed = new_nickname.trim();
+        if (trimmed && trimmed !== current_nickname && ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+            ws_ref.current.send(JSON.stringify({
+                type: 'nickname_change',
+                new_nickname: trimmed
+            }));
+        }
+        setIsEditingNickname(false);
     };
 
     const scrollToBottom = () => {
@@ -647,17 +803,14 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
     };
 
     const processFile = async (file: File) => {
-        console.log('파일 처리 시작:', file.name, file.size, file.type);
-        
         if (!isConnected || !isJoined) {
-            console.error('연결되지 않음:', { isConnected, isJoined });
-            alert('연결되지 않았습니다.');
+            showToast('연결되지 않았습니다.');
             return;
         }
 
         const max_size = file.type.startsWith('image/') ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
         if (file.size > max_size) {
-            alert(file.type.startsWith('image/') ? '이미지 크기는 5MB 이하여야 합니다.' : '파일 크기는 10MB 이하여야 합니다.');
+            showToast(file.type.startsWith('image/') ? '이미지 크기는 5MB 이하여야 합니다.' : '파일 크기는 10MB 이하여야 합니다.');
             return;
         }
 
@@ -666,33 +819,20 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             
             reader.onload = (e) => {
                 const result = e.target?.result as string;
-                console.log('파일 읽기 완료, 데이터 크기:', result.length);
-                
                 if (file.type.startsWith('image/')) {
-                    console.log('이미지 전송 시작');
                     handleSendMessage('', undefined, result);
                 } else {
-                    console.log('파일 전송 시작:', file.name, file.size);
                     handleSendMessage('', undefined, undefined, undefined, result, file.name, file.size, file.type);
                 }
             };
 
-            reader.onerror = (error) => {
-                console.error('파일 읽기 오류:', error);
-                alert('파일을 읽는데 실패했습니다.');
-            };
-
-            reader.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = (e.loaded / e.total) * 100;
-                    console.log(`파일 읽기 진행: ${percent.toFixed(1)}%`);
-                }
+            reader.onerror = () => {
+                showToast('파일을 읽는데 실패했습니다.');
             };
 
             reader.readAsDataURL(file);
-        } catch (error) {
-            console.error('파일 처리 오류:', error);
-            alert('파일 처리에 실패했습니다.');
+        } catch {
+            showToast('파일 처리에 실패했습니다.');
         }
     };
 
@@ -731,21 +871,14 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
         setIsDragOver(false);
         setDragCounter(0);
 
-        console.log('파일 드롭 이벤트:', { isConnected, isJoined, filesCount: e.dataTransfer.files.length });
-
         if (!isConnected || !isJoined) {
-            console.error('드롭 실패: 연결되지 않음');
-            alert('연결되지 않았습니다.');
+            showToast('연결되지 않았습니다.');
             return;
         }
 
         const files = Array.from(e.dataTransfer.files);
         if (files.length > 0) {
-            const file = files[0];
-            console.log('드롭된 파일:', file.name, file.size, file.type);
-            processFile(file);
-        } else {
-            console.warn('드롭된 파일이 없음');
+            processFile(files[0]);
         }
     };
 
@@ -758,32 +891,137 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            <div className="relative border-b px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
-                <div className="flex items-center justify-between max-w-4xl mx-auto gap-1 sm:gap-2">
-                    <div className="flex items-center gap-1 sm:gap-2 md:gap-3 min-w-0 flex-1">
-                        <h1 className="text-xs sm:text-sm font-bold hidden sm:block" style={{ color: theme_colors.input_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            Chat
-                        </h1>
+            {/* Toast */}
+            {toast_message && (
+                <div 
+                    className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] px-4 py-2 rounded-xl shadow-lg animate-fade-in"
+                    style={{ 
+                        backgroundColor: theme_colors.button_input_background, 
+                        border: `1px solid ${theme_colors.info_text}`,
+                        color: theme_colors.input_text
+                    }}
+                >
+                    <span className="text-sm">{toast_message}</span>
+                </div>
+            )}
+            <div className="relative border-b px-2 py-1.5 sm:px-3 sm:py-2 neumorphic" style={{ backgroundColor: theme_colors.input_bar_background, borderColor: theme_colors.info_text }}>
+                <div className="flex items-center justify-between max-w-4xl mx-auto gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-xs sm:text-sm font-bold truncate" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            {isConnected ? 'ON' : 'OFF'}
-                        </span>
                         <UserListChip user_count={user_list.length} user_list={user_list} />
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
-                        <span className="text-xs hidden sm:inline truncate max-w-[80px]" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                            &gt; {nickname}
-                        </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="relative" ref={settings_menu_ref}>
+                            <button
+                                onClick={() => setShowSettingsMenu(!show_settings_menu)}
+                                className="p-1.5 rounded-full transition-all hover:opacity-80"
+                                style={{ 
+                                    color: theme_colors.info_text,
+                                    backgroundColor: theme_colors.button_input_background
+                                }}
+                                title="설정"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                            {show_settings_menu && (
+                                <div 
+                                    className="absolute top-full right-0 mt-1 rounded-xl p-2 z-50 min-w-[160px] shadow-lg"
+                                    style={{ backgroundColor: theme_colors.button_input_background, border: `1px solid ${theme_colors.info_text}` }}
+                                >
+                                    {/* 닉네임 */}
+                                    <div className="px-3 py-2">
+                                        {is_editing_nickname ? (
+                                            <input
+                                                type="text"
+                                                value={new_nickname}
+                                                onChange={(e) => setNewNickname(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleNicknameChange();
+                                                    if (e.key === 'Escape') setIsEditingNickname(false);
+                                                }}
+                                                onBlur={handleNicknameChange}
+                                                autoFocus
+                                                className="w-full px-2 py-1 rounded text-xs bg-transparent border"
+                                                style={{ 
+                                                    color: theme_colors.input_text,
+                                                    borderColor: theme_colors.info_text
+                                                }}
+                                                maxLength={20}
+                                            />
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    setNewNickname(current_nickname);
+                                                    setIsEditingNickname(true);
+                                                }}
+                                                className="flex items-center gap-2 text-xs w-full"
+                                                style={{ color: theme_colors.input_text }}
+                                            >
+                                                <span>✏️</span>
+                                                <span className="truncate">{current_nickname}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="h-px my-1" style={{ backgroundColor: theme_colors.info_text, opacity: 0.3 }} />
+                                    
+                                    {/* 삭제 시간 */}
+                                    <div className="px-3 py-2">
+                                        <div className="text-xs mb-2" style={{ color: theme_colors.info_text }}>
+                                            메시지 삭제 시간 (분)
+                                        </div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {[1, 3, 5, 10, 30, 60].map((time) => (
+                                                <button
+                                                    key={time}
+                                                    onClick={() => handleDeleteTimeChange(time)}
+                                                    className="px-2 py-1 rounded text-xs transition-colors"
+                                                    style={{ 
+                                                        backgroundColor: delete_time === time ? theme_colors.chat_background : 'transparent',
+                                                        color: delete_time === time ? theme_colors.input_text : theme_colors.info_text,
+                                                        fontWeight: delete_time === time ? 600 : 400
+                                                    }}
+                                                >
+                                                    {time}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="h-px my-1" style={{ backgroundColor: theme_colors.info_text, opacity: 0.3 }} />
+                                    
+                                    {/* 전체 삭제 */}
+                                    <button
+                                        onClick={() => {
+                                            handleClearAllMessages();
+                                            setShowSettingsMenu(false);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+                                        style={{ color: theme_colors.input_text }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme_colors.chat_background}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                        <span>메시지 전체 삭제</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <button
                             onClick={handleDisconnect}
-                            className="neumorphic-button px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs transition-all"
+                            className="p-1.5 rounded-full transition-all hover:opacity-80"
                             style={{ 
-                                color: theme_colors.input_text,
-                                fontFamily: 'var(--font-sans)', 
-                                fontWeight: 500 
+                                color: theme_colors.info_text,
+                                backgroundColor: theme_colors.button_input_background
                             }}
+                            title="나가기"
                         >
-                            EXIT
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -881,17 +1119,16 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                     </button>
                 )}
                 <div className="max-w-4xl mx-auto">
-                    {messages.map((msg, index) => {
-                        const unique_key = `${msg.type}-${msg.timestamp}-${msg.nickname}-${index}`;
+                    {messages.filter((msg) => !msg.message_id || !hidden_messages.has(msg.message_id)).map((msg) => {
+                        const unique_key = msg.message_id || `${msg.type}-${msg.timestamp}-${msg.nickname}`;
                         if (msg.type === 'message' && (msg.message || msg.image_data || msg.emoji || msg.file_data)) {
-                            console.log('[렌더링] 메시지:', msg.nickname, msg.file_data ? `파일: ${msg.file_name}` : '', msg.image_data ? '이미지' : '', msg.message || '');
                             return (
                                 <ChatMessage
                                     key={unique_key}
                                     nickname={msg.nickname}
                                     message={msg.message || ''}
                                     timestamp={msg.timestamp}
-                                    isOwn={msg.nickname === nickname}
+                                    isOwn={msg.nickname === current_nickname}
                                     image_data={msg.image_data}
                                     emoji={msg.emoji}
                                     file_data={msg.file_data}
@@ -901,11 +1138,18 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                                     message_id={msg.message_id}
                                     read_count={msg.read_count}
                                     total_users={user_list.length}
+                                    reactions={msg.reactions}
+                                    reply_to_preview={msg.reply_to_preview}
+                                    is_highlighted={highlighted_message_id === msg.message_id}
+                                    onReaction={handleReaction}
+                                    onDelete={handleDeleteMessage}
+                                    onReply={handleReply}
+                                    onScrollToMessage={handleScrollToMessage}
                                 />
                             );
                         } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji || msg.file_data) && msg.target_nickname) {
-                            const is_sender = msg.nickname === nickname;
-                            const is_receiver = msg.target_nickname.toLowerCase() === nickname.toLowerCase();
+                            const is_sender = msg.nickname === current_nickname;
+                            const is_receiver = msg.target_nickname.toLowerCase() === current_nickname.toLowerCase();
                             
                             if (is_sender || is_receiver) {
                                 return (
@@ -917,13 +1161,18 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                                         isOwn={is_sender}
                                         isWhisper={true}
                                         target_nickname={msg.target_nickname}
-                                        current_nickname={nickname}
                                         image_data={msg.image_data}
                                         emoji={msg.emoji}
                                         file_data={msg.file_data}
                                         file_name={msg.file_name}
                                         file_size={msg.file_size}
                                         file_type={msg.file_type}
+                                        message_id={msg.message_id}
+                                        reactions={msg.reactions}
+                                        is_highlighted={highlighted_message_id === msg.message_id}
+                                        onReaction={handleReaction}
+                                        onDelete={handleDeleteMessage}
+                                        onScrollToMessage={handleScrollToMessage}
                                     />
                                 );
                             }
@@ -932,7 +1181,7 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                             return (
                                 <SystemMessage
                                     key={unique_key}
-                                    message={`${msg.nickname}님이 입장했습니다.`}
+                                    message={msg.message || `${msg.nickname}님이 입장했습니다.`}
                                 />
                             );
                         } else if (msg.type === 'leave') {
@@ -953,7 +1202,8 @@ export default function ChatRoom({ nickname, server_url, onDisconnect }: ChatRoo
                 onSendMessage={handleSendMessage} 
                 disabled={!isConnected || !isJoined}
                 user_list={user_list}
-                current_nickname={nickname}
+                current_nickname={current_nickname}
+                reply_to_message={reply_to_message}
             />
             <div className="fixed bottom-2 right-2 text-sm z-40" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v{APP_VERSION}

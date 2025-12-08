@@ -1,7 +1,18 @@
 import { WebSocketServer, WebSocket } from 'ws';
 
+interface Reaction {
+    [emoji: string]: string[];
+}
+
+interface ReplyPreview {
+    nickname: string;
+    message: string;
+    image_data?: boolean;
+    file_name?: string;
+}
+
 interface ChatMessage {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read' | 'read_update';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read' | 'read_update' | 'reaction' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -17,6 +28,13 @@ interface ChatMessage {
     message_id?: string;
     read_count?: number;
     total_users?: number;
+    reactions?: Reaction;
+    reaction_emoji?: string;
+    reply_to?: string;
+    reply_to_preview?: ReplyPreview;
+    delete_time?: number;
+    old_nickname?: string;
+    new_nickname?: string;
 }
 
 const wss = new WebSocketServer({ 
@@ -28,6 +46,8 @@ const wss = new WebSocketServer({
 
 const clients = new Map<WebSocket, string>();
 const message_readers = new Map<string, Set<string>>();
+const message_reactions = new Map<string, Reaction>();
+let delete_time_minutes = 5;
 
 function isMonitor(nickname: string): boolean {
     return nickname.startsWith('__monitor__');
@@ -137,7 +157,9 @@ wss.on('connection', (ws: WebSocket) => {
                     timestamp: Date.now(),
                     message_id: message_id,
                     read_count: unread_count,
-                    total_users: total_users
+                    total_users: total_users,
+                    reply_to: parsed_data.reply_to,
+                    reply_to_preview: parsed_data.reply_to_preview
                 };
                 
                 if (parsed_data.file_data) {
@@ -214,6 +236,117 @@ wss.on('connection', (ws: WebSocket) => {
                 
                 sendWhisper(whisper, ws);
                 console.log(`${sender_nickname} -> ${target_nickname}: ${whisper_message || parsed_data.emoji || parsed_data.file_name || '[이미지]'}`);
+            } else if (parsed_data.type === 'reaction') {
+                if (!clients.has(ws)) return;
+                const reactor_nickname = clients.get(ws);
+                if (!reactor_nickname || isMonitor(reactor_nickname)) return;
+                
+                const message_id = parsed_data.message_id;
+                const emoji = parsed_data.reaction_emoji;
+                
+                if (!message_id || !emoji) return;
+                
+                let reactions = message_reactions.get(message_id);
+                if (!reactions) {
+                    reactions = {};
+                    message_reactions.set(message_id, reactions);
+                }
+                
+                if (!reactions[emoji]) {
+                    reactions[emoji] = [];
+                }
+                
+                const user_index = reactions[emoji].indexOf(reactor_nickname);
+                if (user_index === -1) {
+                    reactions[emoji].push(reactor_nickname);
+                } else {
+                    reactions[emoji].splice(user_index, 1);
+                    if (reactions[emoji].length === 0) {
+                        delete reactions[emoji];
+                    }
+                }
+                
+                const reaction_update: ChatMessage = {
+                    type: 'reaction_update',
+                    nickname: reactor_nickname,
+                    timestamp: Date.now(),
+                    message_id: message_id,
+                    reactions: reactions
+                };
+                
+                broadcast(reaction_update);
+                console.log(`[리액션] ${reactor_nickname} -> ${message_id}: ${emoji}`);
+            } else if (parsed_data.type === 'delete_time_update') {
+                if (!clients.has(ws)) return;
+                const nickname = clients.get(ws);
+                if (!nickname || isMonitor(nickname)) return;
+                
+                const new_time = parsed_data.delete_time;
+                if (typeof new_time === 'number' && new_time >= 1 && new_time <= 60) {
+                    delete_time_minutes = new_time;
+                    
+                    const update_msg: ChatMessage = {
+                        type: 'delete_time_update',
+                        nickname: nickname,
+                        timestamp: Date.now(),
+                        delete_time: delete_time_minutes
+                    };
+                    
+                    broadcast(update_msg);
+                    console.log(`[삭제시간] ${nickname}이 ${delete_time_minutes}분으로 변경`);
+                }
+            } else if (parsed_data.type === 'nickname_change') {
+                if (!clients.has(ws)) return;
+                const old_nickname = clients.get(ws);
+                if (!old_nickname || isMonitor(old_nickname)) return;
+                
+                const new_nickname = parsed_data.new_nickname?.trim();
+                if (!new_nickname || new_nickname === old_nickname) return;
+                
+                const is_duplicate = Array.from(clients.entries()).some(
+                    ([existing_ws, existing_nickname]) => 
+                        existing_ws !== ws && existing_nickname.toLowerCase() === new_nickname.toLowerCase()
+                );
+                
+                if (is_duplicate) {
+                    ws.send(JSON.stringify({
+                        type: 'nickname_change',
+                        nickname: old_nickname,
+                        timestamp: Date.now(),
+                        reason: '이미 사용 중인 닉네임입니다.'
+                    }));
+                    return;
+                }
+                
+                clients.set(ws, new_nickname);
+                
+                message_readers.forEach((readers) => {
+                    if (readers.has(old_nickname)) {
+                        readers.delete(old_nickname);
+                        readers.add(new_nickname);
+                    }
+                });
+                
+                message_reactions.forEach((reactions) => {
+                    Object.values(reactions).forEach((users) => {
+                        const index = users.indexOf(old_nickname);
+                        if (index !== -1) {
+                            users[index] = new_nickname;
+                        }
+                    });
+                });
+                
+                const change_msg: ChatMessage = {
+                    type: 'nickname_changed',
+                    nickname: new_nickname,
+                    old_nickname: old_nickname,
+                    new_nickname: new_nickname,
+                    timestamp: Date.now()
+                };
+                
+                broadcast(change_msg);
+                broadcastUserList();
+                console.log(`[닉네임변경] ${old_nickname} -> ${new_nickname}`);
             }
         } catch (error) {
             console.error('메시지 파싱 오류:', error);
@@ -270,7 +403,8 @@ function broadcastUserList() {
         type: 'user_list',
         nickname: '',
         timestamp: Date.now(),
-        user_list: user_list
+        user_list: user_list,
+        delete_time: delete_time_minutes
     };
     const message_string = JSON.stringify(user_list_message);
     clients.forEach((nickname, client) => {
