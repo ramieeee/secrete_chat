@@ -164,7 +164,8 @@ export default function ChatMessage({
     const isSingleEmoji = (text: string): boolean => {
         const trimmed = text.trim();
         if (!trimmed) return false;
-        const emoji_regex = /^(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)(?:\u200D(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F?))*(?:\uFE0F)?$/u;
+        if (/[\p{L}\p{N}]/u.test(trimmed)) return false;
+        const emoji_regex = /^\p{Emoji_Presentation}(\u200D\p{Emoji_Presentation})*$/u;
         return emoji_regex.test(trimmed);
     };
     
