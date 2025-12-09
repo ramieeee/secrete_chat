@@ -161,6 +161,15 @@ export default function ChatMessage({
     const is_long_text = message.length > 200;
     const has_newlines = message.includes('\n');
     
+    const isSingleEmoji = (text: string): boolean => {
+        const trimmed = text.trim();
+        if (!trimmed) return false;
+        const emoji_regex = /^(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)(?:\u200D(?:\p{Emoji_Presentation}|\p{Emoji}\uFE0F?))*(?:\uFE0F)?$/u;
+        return emoji_regex.test(trimmed);
+    };
+    
+    const is_single_emoji = !emoji && message && isSingleEmoji(message);
+    
     const formatTime = (timestamp: number) => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString('ko-KR', { 
@@ -550,7 +559,12 @@ export default function ChatMessage({
                         {emoji && (message || image_data) && (
                             <span className="text-xl mr-1">{emoji}</span>
                         )}
-                        {message && (
+                        {message && is_single_emoji && (
+                            <div className="text-4xl text-center py-1">
+                                {message.trim()}
+                            </div>
+                        )}
+                        {message && !is_single_emoji && (
                             <div className="text-xs leading-relaxed" style={{ 
                                 fontFamily: 'var(--font-sans)', 
                                 fontWeight: 400,
