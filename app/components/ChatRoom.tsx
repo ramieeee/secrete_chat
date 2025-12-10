@@ -21,7 +21,7 @@ interface ReplyPreview {
 }
 
 interface Message {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read_update' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed' | 'ai_message';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -43,6 +43,7 @@ interface Message {
     delete_time?: number;
     old_nickname?: string;
     new_nickname?: string;
+    is_ai?: boolean;
 }
 
 interface ChatRoomProps {
@@ -1213,11 +1214,27 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
 
             <ChatInput 
                 onSendMessage={handleSendMessage} 
+                onSendAIMessage={(ai_response) => {
+                    if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN && isJoined) {
+                        ws_ref.current.send(JSON.stringify({
+                            type: 'ai_message',
+                            message: ai_response
+                        }));
+                    }
+                }}
                 disabled={!isConnected || !isJoined}
                 user_list={user_list}
                 current_nickname={current_nickname}
                 reply_to_message={reply_to_message}
                 onCancelReply={() => setReplyToMessage(null)}
+                messages_for_ai={messages
+                    .filter(msg => (msg.type === 'message' || msg.type === 'whisper') && msg.message)
+                    .slice(-50)
+                    .map(msg => ({
+                        nickname: msg.nickname,
+                        message: msg.message,
+                        timestamp: msg.timestamp
+                    }))}
             />
             <div className="fixed bottom-2 right-2 text-sm z-40" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v{APP_VERSION}

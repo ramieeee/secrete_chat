@@ -12,7 +12,7 @@ interface ReplyPreview {
 }
 
 interface ChatMessage {
-    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read' | 'read_update' | 'reaction' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed';
+    type: 'message' | 'join' | 'leave' | 'join_rejected' | 'user_list' | 'whisper' | 'read' | 'read_update' | 'reaction' | 'reaction_update' | 'delete_time_update' | 'nickname_change' | 'nickname_changed' | 'ai_message';
     nickname: string;
     message?: string;
     timestamp: number;
@@ -35,6 +35,7 @@ interface ChatMessage {
     delete_time?: number;
     old_nickname?: string;
     new_nickname?: string;
+    is_ai?: boolean;
 }
 
 const wss = new WebSocketServer({ 
@@ -347,6 +348,32 @@ wss.on('connection', (ws: WebSocket) => {
                 broadcast(change_msg);
                 broadcastUserList();
                 console.log(`[닉네임변경] ${old_nickname} -> ${new_nickname}`);
+            } else if (parsed_data.type === 'ai_message') {
+                if (!clients.has(ws)) return;
+                const requester_nickname = clients.get(ws);
+                if (!requester_nickname || isMonitor(requester_nickname)) return;
+                
+                const ai_response = parsed_data.message;
+                if (!ai_response) return;
+                
+                const message_id = `ai-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+                const total_users = getRealUserCount();
+                const unread_count = total_users > 1 ? total_users - 1 : 0;
+                
+                const ai_chat_message: ChatMessage = {
+                    type: 'message',
+                    nickname: '🤖 AI',
+                    message: ai_response,
+                    timestamp: Date.now(),
+                    message_id: message_id,
+                    read_count: unread_count,
+                    total_users: total_users,
+                    is_ai: true
+                };
+                
+                message_readers.set(message_id, new Set());
+                broadcast(ai_chat_message);
+                console.log(`[AI] ${requester_nickname}의 요청으로 AI 메시지 전송`);
             }
         } catch (error) {
             console.error('메시지 파싱 오류:', error);

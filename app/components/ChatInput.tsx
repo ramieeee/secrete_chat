@@ -11,26 +11,38 @@ interface ReplyMessage {
     file_name?: string;
 }
 
+interface ChatMessageForAI {
+    nickname: string;
+    message?: string;
+    timestamp: number;
+}
+
 interface ChatInputProps {
     onSendMessage: (message: string, target_nickname?: string, image_data?: string, emoji?: string, file_data?: string, file_name?: string, file_size?: number, file_type?: string) => void;
+    onSendAIMessage?: (message: string) => void;
     disabled?: boolean;
     user_list: string[];
     current_nickname: string;
     reply_to_message?: ReplyMessage | null;
     onCancelReply?: () => void;
+    messages_for_ai?: ChatMessageForAI[];
 }
 
-export default function ChatInput({ onSendMessage, disabled, user_list, current_nickname, reply_to_message, onCancelReply }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, onSendAIMessage, disabled, user_list, current_nickname, reply_to_message, onCancelReply, messages_for_ai }: ChatInputProps) {
     const { theme_colors } = useTheme();
     const [message, setMessage] = useState('');
     const [selected_target, setSelectedTarget] = useState<string>('');
     const [selected_emoji, setSelectedEmoji] = useState<string>('');
     const [show_emoji_picker, setShowEmojiPicker] = useState(false);
     const [show_whisper_menu, setShowWhisperMenu] = useState(false);
+    const [show_ai_modal, setShowAIModal] = useState(false);
+    const [ai_prompt, setAIPrompt] = useState('');
+    const [is_ai_loading, setIsAILoading] = useState(false);
     const file_input_ref = useRef<HTMLInputElement>(null);
     const emoji_picker_ref = useRef<HTMLDivElement>(null);
     const whisper_menu_ref = useRef<HTMLDivElement>(null);
     const textarea_ref = useRef<HTMLTextAreaElement>(null);
+    const ai_modal_ref = useRef<HTMLDivElement>(null);
     const [is_uploading, setIsUploading] = useState(false);
 
     const common_emojis = [
@@ -190,16 +202,62 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
             if (whisper_menu_ref.current && !whisper_menu_ref.current.contains(event.target as Node)) {
                 setShowWhisperMenu(false);
             }
+            if (ai_modal_ref.current && !ai_modal_ref.current.contains(event.target as Node)) {
+                if (!is_ai_loading) {
+                    setShowAIModal(false);
+                }
+            }
         };
 
-        if (show_emoji_picker || show_whisper_menu) {
+        if (show_emoji_picker || show_whisper_menu || show_ai_modal) {
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [show_emoji_picker, show_whisper_menu]);
+    }, [show_emoji_picker, show_whisper_menu, show_ai_modal, is_ai_loading]);
+
+    const handleAISubmit = async () => {
+        if (!ai_prompt.trim() || is_ai_loading) return;
+        
+        setIsAILoading(true);
+        
+        try {
+            const chat_context = messages_for_ai?.map(msg => 
+                `${msg.nickname}: ${msg.message || '[미디어]'}`
+            ).join('\n') || '';
+            
+            const full_prompt = chat_context 
+                ? `현재 채팅 내용:\n${chat_context}\n\n사용자 요청: ${ai_prompt}`
+                : ai_prompt;
+            
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: full_prompt })
+            });
+            
+            if (!response.ok) {
+                throw new Error('AI 서버 응답 오류');
+            }
+            
+            const data = await response.json();
+            const ai_response = data.choices?.[0]?.message?.content || 'AI 응답을 받지 못했습니다.';
+            
+            if (onSendAIMessage) {
+                onSendAIMessage(ai_response);
+            }
+            
+            setAIPrompt('');
+            setShowAIModal(false);
+        } catch (error) {
+            console.error('AI 요청 실패:', error);
+            alert('AI 서버에 연결할 수 없습니다. Ollama가 실행 중인지 확인하세요.');
+        } finally {
+            setIsAILoading(false);
+        }
+    };
 
     const has_content = message.trim().length > 0 || selected_emoji.length > 0;
 
@@ -452,6 +510,96 @@ export default function ChatInput({ onSendMessage, disabled, user_list, current_
                             )}
                         </div>
                     )}
+                    
+                    {/* AI 아이콘 */}
+                    <div className="relative" ref={ai_modal_ref}>
+                        <button
+                            type="button"
+                            onClick={() => setShowAIModal(!show_ai_modal)}
+                            disabled={disabled || is_ai_loading}
+                            className={`neumorphic-button w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:cursor-not-allowed ${is_ai_loading ? 'animate-pulse' : ''}`}
+                            style={{ 
+                                color: show_ai_modal ? '#10B981' : theme_colors.input_text,
+                                fontFamily: 'var(--font-sans)'
+                            }}
+                            title="AI 어시스턴트"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 8V4H8"/>
+                                <rect width="16" height="12" x="4" y="8" rx="2"/>
+                                <path d="M2 14h2"/>
+                                <path d="M20 14h2"/>
+                                <path d="M15 13v2"/>
+                                <path d="M9 13v2"/>
+                            </svg>
+                        </button>
+                        {show_ai_modal && (
+                            <div 
+                                className="absolute bottom-full right-0 mb-2 neumorphic rounded-2xl p-3 z-50 min-w-[280px] max-w-[320px]"
+                                style={{ 
+                                    backgroundColor: theme_colors.button_input_background,
+                                    border: `1px solid ${theme_colors.info_text}40`
+                                }}
+                            >
+                                <div className="flex items-center gap-2 mb-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 8V4H8"/>
+                                        <rect width="16" height="12" x="4" y="8" rx="2"/>
+                                        <path d="M2 14h2"/>
+                                        <path d="M20 14h2"/>
+                                        <path d="M15 13v2"/>
+                                        <path d="M9 13v2"/>
+                                    </svg>
+                                    <span 
+                                        className="text-xs font-medium"
+                                        style={{ color: theme_colors.input_text }}
+                                    >
+                                        AI 어시스턴트
+                                    </span>
+                                </div>
+                                <textarea
+                                    value={ai_prompt}
+                                    onChange={(e) => setAIPrompt(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleAISubmit();
+                                        }
+                                    }}
+                                    placeholder="AI에게 질문하세요..."
+                                    disabled={is_ai_loading}
+                                    className="w-full bg-transparent focus:outline-none text-xs resize-none rounded-lg p-2"
+                                    style={{ 
+                                        color: theme_colors.input_text,
+                                        backgroundColor: theme_colors.chat_background,
+                                        minHeight: '60px',
+                                        maxHeight: '120px'
+                                    }}
+                                    rows={3}
+                                />
+                                <div className="flex items-center justify-between mt-2">
+                                    <span 
+                                        className="text-xs opacity-60"
+                                        style={{ color: theme_colors.info_text }}
+                                    >
+                                        {messages_for_ai?.length || 0}개 메시지 컨텍스트
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleAISubmit}
+                                        disabled={!ai_prompt.trim() || is_ai_loading}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                                        style={{ 
+                                            backgroundColor: '#10B981',
+                                            color: 'white'
+                                        }}
+                                    >
+                                        {is_ai_loading ? '생성 중...' : '전송'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             
