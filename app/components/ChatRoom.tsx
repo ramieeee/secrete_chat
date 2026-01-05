@@ -410,10 +410,21 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
         };
         window.addEventListener('message', handle_extension_message);
 
+        const handle_page_hide = () => {
+            if (ws_ref.current && ws_ref.current.readyState === WebSocket.OPEN) {
+                ws_ref.current.close(1000, '페이지 종료');
+            }
+        };
+
+        window.addEventListener('pagehide', handle_page_hide);
+        window.addEventListener('beforeunload', handle_page_hide);
+
         return () => {
             is_mounted = false;
             document.removeEventListener('visibilitychange', handle_visibility_change);
             window.removeEventListener('message', handle_extension_message);
+            window.removeEventListener('pagehide', handle_page_hide);
+            window.removeEventListener('beforeunload', handle_page_hide);
             if (reconnect_timeout_ref.current) {
                 clearTimeout(reconnect_timeout_ref.current);
                 reconnect_timeout_ref.current = null;
