@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import WebSocket from 'ws';
+import * as vscode from "vscode";
+import WebSocket from "ws";
 
-const SERVER_URL_KEY = 'secreteChat.serverUrl';
+const SERVER_URL_KEY = "secreteChat.serverUrl";
 
 let status_bar_item: vscode.StatusBarItem;
 let ws_monitor: WebSocket | null = null;
@@ -10,203 +10,209 @@ let is_intentional_close = false;
 let output_channel: vscode.OutputChannel;
 
 function log(msg: string) {
-    const time = new Date().toLocaleTimeString();
-    output_channel.appendLine(`[${time}] ${msg}`);
+  const time = new Date().toLocaleTimeString();
+  output_channel.appendLine(`[${time}] ${msg}`);
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    output_channel = vscode.window.createOutputChannel('Secrete Chat');
-    context.subscriptions.push(output_channel);
-    log('Extension activated');
-    
-    status_bar_item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    status_bar_item.text = '○';
-    status_bar_item.tooltip = 'Secrete Chat';
-    status_bar_item.command = 'secreteChat.openChat';
-    status_bar_item.show();
-    context.subscriptions.push(status_bar_item);
+  output_channel = vscode.window.createOutputChannel("Secrete Chat");
+  context.subscriptions.push(output_channel);
+  log("Extension activated");
 
-    const provider = new ChatViewProvider(
-        context.extensionUri, 
-        context, 
-        () => {
-            has_new_message = false;
-            status_bar_item.text = '○';
-            status_bar_item.color = undefined;
-        },
-        (url: string) => {
-            connectWebSocketMonitor(url, provider);
-        }
-    );
+  status_bar_item = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+  status_bar_item.text = "○";
+  status_bar_item.tooltip = "Secrete Chat";
+  status_bar_item.command = "secreteChat.openChat";
+  status_bar_item.show();
+  context.subscriptions.push(status_bar_item);
 
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(
-            ChatViewProvider.viewType,
-            provider,
-            {
-                webviewOptions: {
-                    retainContextWhenHidden: true
-                }
-            }
-        )
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('secreteChat.openChat', () => {
-            has_new_message = false;
-            status_bar_item.text = '○';
-            status_bar_item.color = undefined;
-            vscode.commands.executeCommand('workbench.view.extension.secrete-chat');
-        })
-    );
-
-    const server_url = context.globalState.get<string>(SERVER_URL_KEY);
-    if (server_url) {
-        connectWebSocketMonitor(server_url, provider);
+  const provider = new ChatViewProvider(
+    context.extensionUri,
+    context,
+    () => {
+      has_new_message = false;
+      status_bar_item.text = "○";
+      status_bar_item.color = undefined;
+    },
+    (url: string) => {
+      connectWebSocketMonitor(url, provider);
     }
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      ChatViewProvider.viewType,
+      provider,
+      {
+        webviewOptions: {
+          retainContextWhenHidden: true,
+        },
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("secreteChat.openChat", () => {
+      has_new_message = false;
+      status_bar_item.text = "○";
+      status_bar_item.color = undefined;
+      vscode.commands.executeCommand("workbench.view.extension.secrete-chat");
+    })
+  );
+
+  const server_url = context.globalState.get<string>(SERVER_URL_KEY);
+  if (server_url) {
+    connectWebSocketMonitor(server_url, provider);
+  }
 }
 
-function connectWebSocketMonitor(server_url: string, provider: ChatViewProvider) {
-    try {
-        if (ws_monitor) {
-            is_intentional_close = true;
-            ws_monitor.removeAllListeners();
-            ws_monitor.close();
-            ws_monitor = null;
-        }
-        
-        const url = new URL(server_url);
-        const ws_url = `ws://${url.hostname}:9999`;
-        
-        log(`Connecting to: ${ws_url}`);
-        
-        ws_monitor = new WebSocket(ws_url);
-        is_intentional_close = false;
-        
-        ws_monitor.on('open', () => {
-            log('WebSocket connected!');
-            const join_message = {
-                type: 'join',
-                nickname: '__monitor__' + Math.random().toString(36).substring(7)
-            };
-            ws_monitor?.send(JSON.stringify(join_message));
-        });
-        
-        ws_monitor.on('message', (raw_data) => {
-            try {
-                const data = JSON.parse(raw_data.toString());
-                log(`Received: ${data.type}, isVisible: ${provider.isVisible()}`);
-                if (data.type === 'message' || data.type === 'whisper') {
-                    if (!provider.isVisible()) {
-                        has_new_message = true;
-                        status_bar_item.text = '●';
-                        status_bar_item.color = new vscode.ThemeColor('charts.red');
-                        log('New message! Status bar → red');
-                    }
-                }
-            } catch {
-                // ignore parse errors
-            }
-        });
-        
-        ws_monitor.on('error', (err) => {
-            log(`Error: ${err.message}`);
-        });
-        
-        ws_monitor.on('close', () => {
-            log(`Closed, intentional: ${is_intentional_close}`);
-            if (!is_intentional_close) {
-                setTimeout(() => connectWebSocketMonitor(server_url, provider), 5000);
-            }
-        });
-    } catch (e) {
-        log(`Exception: ${e}`);
+function connectWebSocketMonitor(
+  server_url: string,
+  provider: ChatViewProvider
+) {
+  try {
+    if (ws_monitor) {
+      is_intentional_close = true;
+      ws_monitor.removeAllListeners();
+      ws_monitor.close();
+      ws_monitor = null;
     }
+
+    const url = new URL(server_url);
+    const ws_url = `ws://${url.hostname}:3030`;
+
+    log(`Connecting to: ${ws_url}`);
+
+    ws_monitor = new WebSocket(ws_url);
+    is_intentional_close = false;
+
+    ws_monitor.on("open", () => {
+      log("WebSocket connected!");
+      const join_message = {
+        type: "join",
+        nickname: "__monitor__" + Math.random().toString(36).substring(7),
+      };
+      ws_monitor?.send(JSON.stringify(join_message));
+    });
+
+    ws_monitor.on("message", (raw_data) => {
+      try {
+        const data = JSON.parse(raw_data.toString());
+        log(`Received: ${data.type}, isVisible: ${provider.isVisible()}`);
+        if (data.type === "message" || data.type === "whisper") {
+          if (!provider.isVisible()) {
+            has_new_message = true;
+            status_bar_item.text = "●";
+            status_bar_item.color = new vscode.ThemeColor("charts.red");
+            log("New message! Status bar → red");
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    });
+
+    ws_monitor.on("error", (err) => {
+      log(`Error: ${err.message}`);
+    });
+
+    ws_monitor.on("close", () => {
+      log(`Closed, intentional: ${is_intentional_close}`);
+      if (!is_intentional_close) {
+        setTimeout(() => connectWebSocketMonitor(server_url, provider), 5000);
+      }
+    });
+  } catch (e) {
+    log(`Exception: ${e}`);
+  }
 }
 
 class ChatViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'secreteChat.chatView';
+  public static readonly viewType = "secreteChat.chatView";
 
-    private _view?: vscode.WebviewView;
-    private _isVisible = false;
+  private _view?: vscode.WebviewView;
+  private _isVisible = false;
 
-    constructor(
-        private readonly _extensionUri: vscode.Uri,
-        private readonly _context: vscode.ExtensionContext,
-        private readonly _onViewed?: () => void,
-        private readonly _onUrlSaved?: (url: string) => void
-    ) {}
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _context: vscode.ExtensionContext,
+    private readonly _onViewed?: () => void,
+    private readonly _onUrlSaved?: (url: string) => void
+  ) {}
 
-    public isVisible(): boolean {
-        return this._isVisible && this._view?.visible === true;
-    }
+  public isVisible(): boolean {
+    return this._isVisible && this._view?.visible === true;
+  }
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken
-    ) {
-        this._view = webviewView;
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ) {
+    this._view = webviewView;
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this._extensionUri],
+    };
 
+    this._updateWebview();
+
+    webviewView.webview.onDidReceiveMessage(async (message) => {
+      if (message.type === "openExternal" && message.url) {
+        vscode.env.openExternal(vscode.Uri.parse(message.url));
+      } else if (message.type === "openSimpleBrowser" && message.url) {
+        vscode.commands.executeCommand("simpleBrowser.show", message.url);
+      } else if (message.type === "openImage" && message.url) {
+        this._openImagePanel(message.url);
+      } else if (message.type === "saveUrl" && message.url) {
+        await this._context.globalState.update(SERVER_URL_KEY, message.url);
+        this._onUrlSaved?.(message.url);
         this._updateWebview();
+      } else if (message.type === "resetUrl") {
+        await this._context.globalState.update(SERVER_URL_KEY, undefined);
+        this._updateWebview();
+      } else if (message.type === "refresh") {
+        this._updateWebview();
+      }
+    });
 
-        webviewView.webview.onDidReceiveMessage(async (message) => {
-            if (message.type === 'openExternal' && message.url) {
-                vscode.env.openExternal(vscode.Uri.parse(message.url));
-            } else if (message.type === 'openSimpleBrowser' && message.url) {
-                vscode.commands.executeCommand('simpleBrowser.show', message.url);
-            } else if (message.type === 'openImage' && message.url) {
-                this._openImagePanel(message.url);
-            } else if (message.type === 'saveUrl' && message.url) {
-                await this._context.globalState.update(SERVER_URL_KEY, message.url);
-                this._onUrlSaved?.(message.url);
-                this._updateWebview();
-            } else if (message.type === 'resetUrl') {
-                await this._context.globalState.update(SERVER_URL_KEY, undefined);
-                this._updateWebview();
-            } else if (message.type === 'refresh') {
-                this._updateWebview();
-            }
-        });
-
-        webviewView.onDidChangeVisibility(() => {
-            this._isVisible = webviewView.visible;
-            webviewView.webview.postMessage({ 
-                type: 'visibilityChange', 
-                visible: webviewView.visible 
-            });
-            if (webviewView.visible) {
-                this._onViewed?.();
-            }
-        });
-
-        this._isVisible = true;
+    webviewView.onDidChangeVisibility(() => {
+      this._isVisible = webviewView.visible;
+      webviewView.webview.postMessage({
+        type: "visibilityChange",
+        visible: webviewView.visible,
+      });
+      if (webviewView.visible) {
         this._onViewed?.();
+      }
+    });
+
+    this._isVisible = true;
+    this._onViewed?.();
+  }
+
+  private _updateWebview() {
+    if (this._view) {
+      const saved_url = this._context.globalState.get<string>(SERVER_URL_KEY);
+      this._view.webview.html = this._getHtmlForWebview(saved_url);
     }
+  }
 
-    private _updateWebview() {
-        if (this._view) {
-            const saved_url = this._context.globalState.get<string>(SERVER_URL_KEY);
-            this._view.webview.html = this._getHtmlForWebview(saved_url);
-        }
-    }
+  private _openImagePanel(image_url: string) {
+    const panel = vscode.window.createWebviewPanel(
+      "secreteChatImage",
+      "이미지 보기",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: false,
+      }
+    );
 
-    private _openImagePanel(image_url: string) {
-        const panel = vscode.window.createWebviewPanel(
-            'secreteChatImage',
-            '이미지 보기',
-            vscode.ViewColumn.One,
-            {
-                enableScripts: false
-            }
-        );
-
-        panel.webview.html = `<!DOCTYPE html>
+    panel.webview.html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -236,20 +242,20 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
     <img src="${image_url}" alt="이미지" />
 </body>
 </html>`;
+  }
+
+  private _getHtmlForWebview(saved_url?: string): string {
+    if (saved_url) {
+      return this._getChatHtml(saved_url);
     }
+    return this._getUrlInputHtml();
+  }
 
-    private _getHtmlForWebview(saved_url?: string): string {
-        if (saved_url) {
-            return this._getChatHtml(saved_url);
-        }
-        return this._getUrlInputHtml();
-    }
+  private _getUrlInputHtml(): string {
+    const default_url = "http://172.29.12.119:3000";
+    const nonce = this._getNonce();
 
-    private _getUrlInputHtml(): string {
-        const default_url = 'http://172.29.12.119:3000';
-        const nonce = this._getNonce();
-
-        return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -485,11 +491,11 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
     </script>
 </body>
 </html>`;
-    }
+  }
 
-    private _getChatHtml(server_url: string): string {
-        const nonce = this._getNonce();
-        return `<!DOCTYPE html>
+  private _getChatHtml(server_url: string): string {
+    const nonce = this._getNonce();
+    return `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -724,16 +730,17 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
     </script>
 </body>
 </html>`;
-    }
+  }
 
-    private _getNonce(): string {
-        let text = '';
-        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i = 0; i < 32; i++) {
-            text += possible.charAt(Math.floor(Math.random() * possible.length));
-        }
-        return text;
+  private _getNonce(): string {
+    let text = "";
+    const possible =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    for (let i = 0; i < 32; i++) {
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
+    return text;
+  }
 }
 
 export function deactivate() {}
