@@ -13,6 +13,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
     const { theme_colors } = useTheme();
     const [nickname, setNickname] = useState('');
     const [password, setPassword] = useState('');
+    const nickname_input_ref = useRef<HTMLInputElement>(null);
     const password_input_ref = useRef<HTMLInputElement>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -57,10 +58,13 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                         </label>
                         <div className="neumorphic-input rounded-full px-4 py-2">
                             <input
+                                ref={nickname_input_ref}
                                 type="text"
                                 value={nickname}
                                 onChange={(e) => setNickname(e.target.value)}
                                 onInput={(e) => setNickname(e.currentTarget.value)}
+                                onKeyUp={(e) => setNickname(e.currentTarget.value)}
+                                onCompositionEnd={(e) => setNickname(e.currentTarget.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
@@ -78,6 +82,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 autoCapitalize="none"
                                 autoCorrect="off"
                                 enterKeyHint="next"
+                                autoComplete="username"
                             />
                         </div>
                     </div>
@@ -92,6 +97,8 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 onInput={(e) => setPassword(e.currentTarget.value)}
+                                onKeyUp={(e) => setPassword(e.currentTarget.value)}
+                                onCompositionEnd={(e) => setPassword(e.currentTarget.value)}
                                 placeholder="비밀번호를 입력하세요"
                                 className="w-full bg-transparent focus:outline-none text-xs placeholder-opacity-70"
                                 style={{ 
@@ -102,6 +109,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 autoCapitalize="none"
                                 autoCorrect="off"
                                 enterKeyHint="go"
+                                autoComplete="current-password"
                             />
                         </div>
                     </div>
