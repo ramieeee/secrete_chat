@@ -447,7 +447,12 @@ export default function ChatInput({
   return (
     <div
       className="fixed bottom-0 left-0 right-0 p-4 pb-6 flex flex-col items-center z-50"
-      style={{ backgroundColor: "transparent" }}
+      style={{
+        backgroundColor: "transparent",
+        paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))",
+        paddingLeft: "max(1rem, env(safe-area-inset-left))",
+        paddingRight: "max(1rem, env(safe-area-inset-right))",
+      }}
     >
       {/* Reply Preview */}
       {reply_to_message && (

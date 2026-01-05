@@ -26,7 +26,15 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
     const can_submit = nickname.trim().length > 0 && password.trim().length > 0;
 
     return (
-        <div className="flex items-center justify-center min-h-screen neumorphic relative overflow-hidden" style={{ backgroundColor: theme_colors.chat_background }}>
+        <div
+            className="flex items-center justify-center min-h-screen neumorphic relative overflow-hidden"
+            style={{ 
+                backgroundColor: theme_colors.chat_background,
+                minHeight: '100dvh',
+                paddingTop: 'env(safe-area-inset-top)',
+                paddingBottom: 'env(safe-area-inset-bottom)'
+            }}
+        >
             <div className="fixed bottom-2 right-2 text-xs z-40" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
                 v{APP_VERSION}
             </div>

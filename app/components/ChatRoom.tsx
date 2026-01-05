@@ -888,7 +888,11 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
     return (
         <div 
             className="flex flex-col h-screen relative overflow-hidden neumorphic" 
-            style={{ backgroundColor: theme_colors.chat_background }}
+            style={{ 
+                backgroundColor: theme_colors.chat_background,
+                height: '100dvh',
+                minHeight: '100dvh'
+            }}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -1099,7 +1103,11 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
                     </p>
                 </div>
             </div>
-            <div ref={messages_container_ref} className="flex-1 overflow-y-auto px-4 py-3 pb-24 relative">
+            <div 
+                ref={messages_container_ref} 
+                className="flex-1 overflow-y-auto px-4 py-3 pb-24 relative"
+                style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
+            >
                 {show_scroll_button && (
                     <button
                         onClick={scrollToBottom}
@@ -1111,7 +1119,8 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
                             fontFamily: 'var(--font-sans)', 
                             fontWeight: 600,
                             backdropFilter: 'blur(6px)',
-                            boxShadow: `0 8px 20px ${theme_colors.chat_background}cc`
+                            boxShadow: `0 8px 20px ${theme_colors.chat_background}cc`,
+                            bottom: 'calc(6rem + env(safe-area-inset-bottom))'
                         }}
                         title="아래로"
                     >
