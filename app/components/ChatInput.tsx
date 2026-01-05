@@ -62,6 +62,8 @@ export default function ChatInput({
   const textarea_ref = useRef<HTMLTextAreaElement>(null);
   const ai_modal_ref = useRef<HTMLDivElement>(null);
   const [is_uploading, setIsUploading] = useState(false);
+  const is_composing_ref = useRef(false);
+  const last_send_at_ref = useRef(0);
 
   const common_emojis = [
     "😀",
@@ -207,6 +209,10 @@ export default function ChatInput({
   );
 
   const handleSend = () => {
+    const now = Date.now();
+    if (now - last_send_at_ref.current < 250) {
+      return;
+    }
     const trimmed_message = message.trim();
     if ((trimmed_message || selected_emoji) && !disabled) {
       if (selected_target) {
@@ -224,6 +230,7 @@ export default function ChatInput({
       if (textarea_ref.current) {
         textarea_ref.current.style.height = "auto";
       }
+      last_send_at_ref.current = now;
     }
   };
 
@@ -345,6 +352,9 @@ export default function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (is_composing_ref.current || (e.nativeEvent as InputEvent).isComposing) {
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -495,6 +505,12 @@ export default function ChatInput({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
+              onCompositionStart={() => {
+                is_composing_ref.current = true;
+              }}
+              onCompositionEnd={() => {
+                is_composing_ref.current = false;
+              }}
               onPaste={handlePaste}
               placeholder={
                 selected_target ? `${selected_target}에게 귓속말...` : ""
