@@ -1,0 +1,12 @@
+services:
+  sc:
+    image: sc:1.0.0
+    container_name: sc
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "3030:3030"
+    environment:
+      - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
