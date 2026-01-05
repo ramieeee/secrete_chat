@@ -60,6 +60,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 type="text"
                                 value={nickname}
                                 onChange={(e) => setNickname(e.target.value)}
+                                onInput={(e) => setNickname(e.currentTarget.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         e.preventDefault();
@@ -90,6 +91,7 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                onInput={(e) => setPassword(e.currentTarget.value)}
                                 placeholder="비밀번호를 입력하세요"
                                 className="w-full bg-transparent focus:outline-none text-xs placeholder-opacity-70"
                                 style={{ 
