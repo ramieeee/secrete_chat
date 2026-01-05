@@ -459,15 +459,9 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
 
         const check_and_scroll = () => {
             if (!container) return;
-            
-            // 실제 현재 스크롤 위치를 확인
-            const scroll_height = container.scrollHeight;
-            const scroll_top = container.scrollTop;
-            const client_height = container.clientHeight;
-            const distance_from_bottom = scroll_height - scroll_top - client_height;
-            
-            // 162번 라인과 동일한 조건 (distance_from_bottom <= 200)일 때만 스크롤
-            if (distance_from_bottom <= 200) {
+            if (was_at_bottom_ref.current) {
+                const scroll_height = container.scrollHeight;
+                const client_height = container.clientHeight;
                 const target_scroll = scroll_height - client_height;
                 smooth_scroll_to_bottom(target_scroll);
             }
@@ -805,6 +799,12 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
         requestAnimationFrame(animate);
     };
 
+    const handleMediaLoad = () => {
+        if (was_at_bottom_ref.current) {
+            scrollToBottom();
+        }
+    };
+
     const processFile = async (file: File) => {
         if (!isConnected || !isJoined) {
             showToast('연결되지 않았습니다.');
@@ -1103,21 +1103,23 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
                 {show_scroll_button && (
                     <button
                         onClick={scrollToBottom}
-                        className="fixed bottom-24 right-[calc(1rem+10px)] md:right-[calc(2rem+10px)] rounded-full p-2 shadow-lg border transition-all hover:scale-110 z-40"
+                        className="fixed bottom-24 right-[calc(1rem+10px)] md:right-[calc(2rem+10px)] rounded-full px-3 py-2 shadow-lg border transition-all hover:scale-105 active:scale-100 z-40"
                         style={{ 
-                            backgroundColor: theme_colors.button_input_background,
+                            background: `linear-gradient(135deg, ${theme_colors.button_input_background} 0%, ${theme_colors.chat_background} 100%)`,
                             color: theme_colors.input_text,
-                            borderColor: theme_colors.info_text,
+                            borderColor: `${theme_colors.info_text}66`,
                             fontFamily: 'var(--font-sans)', 
-                            fontWeight: 500 
+                            fontWeight: 600,
+                            backdropFilter: 'blur(6px)',
+                            boxShadow: `0 8px 20px ${theme_colors.chat_background}cc`
                         }}
-                        title="밑으로"
+                        title="아래로"
                     >
-                        <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-1.5">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                             </svg>
-                            <span className="text-sm mt-0.5">밑으로</span>
+                            <span className="text-xs tracking-wide">아래로</span>
                         </div>
                     </button>
                 )}
@@ -1159,6 +1161,7 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
                                         onDelete={handleDeleteMessage}
                                         onReply={handleReply}
                                         onScrollToMessage={handleScrollToMessage}
+                                        onMediaLoad={handleMediaLoad}
                                     />
                                 );
                             } else if (msg.type === 'whisper' && (msg.message || msg.image_data || msg.emoji || msg.file_data) && msg.target_nickname) {
@@ -1188,6 +1191,7 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, passw
                                             onReaction={handleReaction}
                                             onDelete={handleDeleteMessage}
                                             onScrollToMessage={handleScrollToMessage}
+                                            onMediaLoad={handleMediaLoad}
                                         />
                                     );
                                 }

@@ -39,6 +39,7 @@ interface ChatMessageProps {
     onDelete?: (message_id: string) => void;
     onReply?: (message_id: string) => void;
     onScrollToMessage?: (message_id: string) => void;
+    onMediaLoad?: () => void;
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👎'];
@@ -66,7 +67,8 @@ export default function ChatMessage({
     onReaction,
     onDelete,
     onReply,
-    onScrollToMessage
+    onScrollToMessage,
+    onMediaLoad
 }: ChatMessageProps) {
     const { theme_colors } = useTheme();
     const [show_image_modal, setShowImageModal] = useState(false);
@@ -511,6 +513,8 @@ export default function ChatMessage({
                                     draggable={false}
                                     onDragStart={(e) => e.preventDefault()}
                                     onMouseDown={(e) => e.preventDefault()}
+                                    onLoad={onMediaLoad}
+                                    onError={onMediaLoad}
                                 />
                             </div>
                         )}
@@ -731,4 +735,3 @@ export default function ChatMessage({
         </>
     );
 }
-

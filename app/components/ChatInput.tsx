@@ -352,7 +352,7 @@ export default function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (is_composing_ref.current || (e.nativeEvent as InputEvent).isComposing) {
+    if (is_composing_ref.current || e.nativeEvent.isComposing) {
       return;
     }
     if (e.key === "Enter" && !e.shiftKey) {
