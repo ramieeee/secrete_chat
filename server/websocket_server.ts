@@ -63,6 +63,7 @@ const clients = new Map<WebSocket, string>();
 const message_readers = new Map<string, Set<string>>();
 const message_reactions = new Map<string, Reaction>();
 let delete_time_minutes = 5;
+const ROOM_PASSWORD = "greatramieeee";
 
 function isMonitor(nickname: string): boolean {
   return nickname.startsWith("__monitor__");
@@ -94,6 +95,19 @@ wss.on("connection", (ws: WebSocket) => {
 
         const nickname = parsed_data.nickname || "익명";
         const trimmed_nickname = nickname.trim();
+        const provided_password = parsed_data.password || "";
+
+        if (ROOM_PASSWORD && provided_password !== ROOM_PASSWORD) {
+          const reject_message: ChatMessage = {
+            type: "join_rejected",
+            nickname: trimmed_nickname,
+            timestamp: Date.now(),
+            reason: "비밀번호가 올바르지 않습니다.",
+          };
+          ws.send(JSON.stringify(reject_message));
+          ws.close(1008, "비밀번호 불일치");
+          return;
+        }
 
         if (!trimmed_nickname) {
           const reject_message: ChatMessage = {

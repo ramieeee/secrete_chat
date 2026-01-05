@@ -49,10 +49,11 @@ interface Message {
 interface ChatRoomProps {
     nickname: string;
     server_url: string;
+    password: string;
     onDisconnect: (errorMessage?: string) => void;
 }
 
-export default function ChatRoom({ nickname: initial_nickname, server_url, onDisconnect }: ChatRoomProps) {
+export default function ChatRoom({ nickname: initial_nickname, server_url, password, onDisconnect }: ChatRoomProps) {
     const { theme_colors } = useTheme();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isConnected, setIsConnected] = useState(false);
@@ -156,7 +157,8 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
                         }
                         ws.send(JSON.stringify({
                             type: 'join',
-                            nickname: current_nickname
+                            nickname: current_nickname,
+                            password: password
                         }));
                     }
                 };
@@ -425,7 +427,7 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
             }
             is_reconnecting_ref.current = false;
         };
-    }, [current_nickname]);
+    }, [current_nickname, password, server_url]);
 
     useEffect(() => {
         const container = messages_container_ref.current;
@@ -1242,4 +1244,3 @@ export default function ChatRoom({ nickname: initial_nickname, server_url, onDis
         </div>
     );
 }
-

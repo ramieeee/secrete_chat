@@ -1,27 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { APP_VERSION } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface NicknameInputProps {
-    onJoin: (nickname: string, server_url: string) => void;
+    onJoin: (nickname: string, server_url: string, password: string) => void;
     errorMessage?: string | null;
 }
 
 export default function NicknameInput({ onJoin, errorMessage }: NicknameInputProps) {
     const { theme_colors } = useTheme();
     const [nickname, setNickname] = useState('');
+    const [password, setPassword] = useState('');
+    const password_input_ref = useRef<HTMLInputElement>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const trimmed_nickname = nickname.trim();
-        if (trimmed_nickname) {
-            onJoin(trimmed_nickname, window.location.origin);
+        if (trimmed_nickname && password.trim()) {
+            onJoin(trimmed_nickname, window.location.origin, password);
         }
     };
 
-    const can_submit = nickname.trim().length > 0;
+    const can_submit = nickname.trim().length > 0 && password.trim().length > 0;
 
     return (
         <div className="flex items-center justify-center min-h-screen neumorphic relative overflow-hidden" style={{ backgroundColor: theme_colors.chat_background }}>
@@ -50,6 +52,12 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                 type="text"
                                 value={nickname}
                                 onChange={(e) => setNickname(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        password_input_ref.current?.focus();
+                                    }
+                                }}
                                 placeholder="닉네임을 입력하세요"
                                 className="w-full bg-transparent focus:outline-none text-xs placeholder-opacity-70"
                                 style={{ 
@@ -58,6 +66,32 @@ export default function NicknameInput({ onJoin, errorMessage }: NicknameInputPro
                                     fontWeight: 400 
                                 }}
                                 maxLength={20}
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                enterKeyHint="next"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs mb-1.5" style={{ color: theme_colors.info_text, fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
+                            비밀번호
+                        </label>
+                        <div className="neumorphic-input rounded-full px-4 py-2">
+                            <input
+                                ref={password_input_ref}
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="비밀번호를 입력하세요"
+                                className="w-full bg-transparent focus:outline-none text-xs placeholder-opacity-70"
+                                style={{ 
+                                    color: theme_colors.input_text,
+                                    fontFamily: 'var(--font-sans)', 
+                                    fontWeight: 400 
+                                }}
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                enterKeyHint="go"
                             />
                         </div>
                     </div>
